@@ -195,6 +195,26 @@ inductive nat : Type where
 
 open nat
 
+def Nat2nat (n : Nat) : nat :=
+  match n with
+    | .zero => O
+    | .succ n' => S (Nat2nat n')
+
+instance : OfNat nat .zero where
+  ofNat := O
+
+-- set_option autoImplicit false にしている場合、
+-- 変数の宣言をしないと「unknown identifier n'」になる
+instance (n' : Nat) : OfNat nat (n') where
+  ofNat := Nat2nat n'
+
+example : Nat2nat 3 = S (S (S O)) := rfl
+
+#eval (3 : nat)
+#eval (0 : nat)
+
+#eval Lean.versionString
+
 def pred (n : nat) : nat :=
   match n with
     | O => O
@@ -204,7 +224,103 @@ def pred (n : nat) : nat :=
 #eval pred (S O)
 #eval pred (S (S O))
 
-end NatPlayground
+def plus (n m : nat) : nat :=
+  match n with
+    | O => m
+    | S n' => S (plus n' m)
+
+def mult (n m : nat) : nat :=
+  match n with
+    | O => O
+    | S n' => plus m (mult n' m)
+
+def minus (n m : nat) : nat :=
+  match n   , m with
+    | O   , _ => O
+    | S _ , O => n
+    | S n', S m' => minus n' m'
+
+def exp (base power : nat) : nat :=
+  match power with
+    | O => S O
+    | S p => mult base (exp base p)
+
+def factorial (n : nat) : nat :=
+  match n with
+    | .O => S O
+    | (S n') => mult n (factorial n')
+
+example : factorial 3 = 6 := rfl
+
+example : factorial 5 = mult 10 12 := rfl
+
+infixl:50 " +!+ " => plus
+infixl:50 " -!- " => minus
+infixl:60 " *!* " => mult
+
+example : (3 +!+ 2 *!* 0) = 3 := rfl
+
+def eqb (n m : nat) : Bool :=
+  match n with
+  | O =>
+  /-
+  -- ここまでOK
+  match m with
+ -- これはダメ
+ match m with
+  -/
+    match m with
+      | O => true
+      | S _m' => false
+  | S n' =>
+    match m with
+      | O => false
+      | S m' => eqb n' m'
+
+def leb (n m : nat) : Bool :=
+  match n with
+  | O => true
+  | S n' =>
+      match m with
+      | O => false
+      | S m' => leb n' m'
+
+infixl:30 " =? " => eqb
+infixl:30 " <=? " => leb
+
+def ltb (n m : nat) : Bool :=
+  if n =? m
+    then false
+    else n <=? m
+
+example : (ltb 2 2) = false := rfl
+example : (ltb 2 4) = true := rfl
+example : (ltb 2 3) = true := rfl
+example : (ltb 4 2) = false := rfl
+example : (ltb 3 2) = false := rfl
+
+theorem plus_O_n' : ∀ (n : nat), (0 +!+ n) = n := by
+  -- intro （またはintros）で n を導入しないと「等式を返す関数」なので
+  -- rflで照明できない（等式ではないので）
+  intro
+  rfl
+
+#print plus_O_n'
+
+theorem plus_O_n'' : ∀ (n : nat), (0 +!+ n) = n :=
+  fun n => @rfl nat n
+
+-- lemma は Mathlib に: https://github.com/leanprover-community/mathlib4/blob/e903c3fc8ef8b337628c4c5e5f545828d7c63499/Mathlib/Tactic/Lemma.lean#L14-L16
+
+theorem plus_id_example : ∀ (n m : nat),
+  n = m → (n +!+ n) = (m +!+ m) := by
+  intro n m H
+  -- 「rewrite [←H]」逆向きの変換
+  rewrite [H]
+  rfl
+
+-- 標準の Nat では Nat.zero_add
+#check Nat.zero_add
 
 def minusTwo (n : Nat) : Nat :=
   match n with
@@ -271,3 +387,8 @@ def exp (base power : Nat) : Nat :=
   match power with
     | .zero => .succ .zero
     | .succ p => mult base (exp base p)
+
+def factorial (n : nat) : nat :=
+  match n with
+    | .O => S O
+    | (S n') =>
