@@ -319,6 +319,143 @@ theorem plus_id_example : ∀ (n m : nat),
   rewrite [H]
   rfl
 
+theorem plus_id_exercise : ∀ (n m o : nat),
+  n = m -> m = o -> (n +!+ m) = (m +!+ o) := by
+  intro n m o H1 H2
+  rewrite [H1, H2]
+  rfl
+
+theorem mult_0_plus : ∀ (n m : nat),
+  ((0 +!+ n) *!* m) = (n *!* m) := by
+  intros
+  rewrite [plus_O_n']
+  rfl
+
+#print mult_0_plus
+
+theorem mult_S_1 : ∀ n m : nat,
+  m = S n -> (m *!* (1 +!+ n)) = (m *!* m) := by
+  intro n m H
+
+  -- 「plus 関数で式を簡約せよ」という意味
+  --  実際にはここでは不要だった！
+  -- simp [plus]
+
+  rewrite [H]
+  rfl
+
+theorem plus_1_neq_0_firsttry : ∀ n : nat,
+  ((n +!+ 1) =? 0) = false := by
+  intro n
+  sorry
+
+theorem plus_1_neq_0 : ∀ n : nat,
+  ((n +!+ 1) =? 0) = false := by
+  intro n
+  cases n
+  case O => rfl
+  case S n' => rfl
+  -- 最初に書いておくと証明が終わってない場合に赤線が出て分かりやすい
+  done
+
+-- plus_1_neq_0 の他の書き方
+theorem plus_1_neq_0' : ∀ n : nat,
+  ((n +!+ 1) =? 0) = false := by
+  intro n
+  cases n
+  . rewrite [] -- · や {} でもよい
+    rfl
+  . rewrite []
+    rfl
+  done
+theorem plus_1_neq_0'' : ∀ n : nat,
+  ((n +!+ 1) =? 0) = false := by
+  intro n
+  cases n
+  rewrite [] -- 何もしないtacticとして
+  rfl
+  rewrite []
+  rfl
+  done
+theorem plus_1_neq_0''' : ∀ n : nat,
+  ((n +!+ 1) =? 0) = false := by
+  intro n
+  cases n with
+  | O => rfl
+  | S n' => rfl
+  done
+-- 短くまとめるバージョン。
+-- <;> は Coq の ; 相当
+theorem plus_1_neq_0'''' : ∀ n : nat,
+  ((n +!+ 1) =? 0) = false := by
+  intro n ; cases n <;> rfl
+  done
+theorem plus_1_neq_0''''' : ∀ n : nat,
+  ((n +!+ 1) =? 0) = false := by
+  intro
+  | O => rfl
+  | S n' => rfl
+  done
+
+theorem negb_involutive : ∀ b : Bool,
+  ! (! b) = b := by
+  intro b ; cases b
+  case true => rfl
+  case false => rfl
+  done
+
+theorem andb_commutative : ∀ b c, and b c = and c b := by
+  intro b c
+  cases b
+  case true =>
+    cases c
+    case true => rfl
+    case false => rfl
+  case false =>
+    cases c
+    case true => rfl
+    case false => rfl
+  done
+theorem andb_commutative' : ∀ b c, and b c = and c b := by
+  intro
+  | true =>
+    intro
+    | true => rfl
+    | false => rfl
+  | false =>
+    intro
+    | true => rfl
+    | false => rfl
+  done
+theorem andb_commutative'' : ∀ b c, and b c = and c b := by
+  intro b c ; cases b <;> cases c <;> rfl
+  done
+
+theorem andb_true_elim2 : ∀ b c : Bool,
+  and b c = true → c = true := by
+  intro b c H
+  cases b
+  case true =>
+    cases c
+    case true => rfl
+    case false =>
+      rewrite [← H]
+      rfl
+  case false =>
+      rewrite [← H]
+      cases c
+      case false => rfl
+      case true =>
+        rewrite [H]
+        rfl
+  done
+
+theorem zero_nbeq_plus_1 : ∀ n : nat,
+  (0 =? (n +!+ 1)) = false := by
+  done
+
+end NatPlayground
+
 -- 標準の Nat では Nat.zero_add
 #check Nat.zero_add
 
@@ -387,8 +524,3 @@ def exp (base power : Nat) : Nat :=
   match power with
     | .zero => .succ .zero
     | .succ p => mult base (exp base p)
-
-def factorial (n : nat) : nat :=
-  match n with
-    | .O => S O
-    | (S n') =>
