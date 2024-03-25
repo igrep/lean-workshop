@@ -450,8 +450,33 @@ theorem andb_true_elim2 : ∀ b c : Bool,
         rfl
   done
 
+-- andb_true_elim2 の別解。
+theorem andb_true_elim3 : ∀ b c : Bool,
+  and b c = true → c = true := by
+  intro b c H
+  cases eqH : b -- eqH は b = true / false
+  case true =>
+    cases c
+    case true => rfl
+    case false =>
+      rewrite [← H, eqH]
+      rfl
+  case false =>
+      rewrite [← H]
+      cases c
+      case false =>
+        rewrite [eqH]
+        rfl
+      case true =>
+        rewrite [H]
+        rfl
+  done
+
 theorem zero_nbeq_plus_1 : ∀ n : nat,
   (0 =? (n +!+ 1)) = false := by
+  intro
+  | O => rfl
+  | S n' => rfl
   done
 
 end NatPlayground
@@ -499,6 +524,28 @@ def plus (n m : Nat) : Nat :=
     | .zero => m
     | .succ n' => .succ (plus n' m)
 
+/-
+def plus_may_not_terminate (m n : Nat) : Nat :=
+  match n with
+    | .zero => m
+    | .succ n' => .succ (plus_may_not_terminate n' m)
+-/
+
+-- partial をつけてもよし
+def plus_may_not_terminate2 (n m : Nat) : Nat :=
+  match n with
+    | .zero => m
+    | .succ _ => .succ (plus_may_not_terminate2 (n - 1) m)
+  termination_by _ n => n
+  decreasing_by sorry
+
+-- これはダメ
+-- example : plus_may_not_terminate2 1 1 = 2 := by rfl
+-- これはできる！
+example : plus_may_not_terminate2 1 1 = 2 := by native_decide
+-- これもできる！無限ループする可能性もあるから注意！
+#eval plus_may_not_terminate2 1 1
+
 def plus' (m : Nat) : (Nat) → Nat
     | .zero => m
     | .succ n' => .succ (plus' m n')
@@ -524,3 +571,132 @@ def exp (base power : Nat) : Nat :=
   match power with
     | .zero => .succ .zero
     | .succ p => mult base (exp base p)
+
+
+theorem identity_fn_applied_twice :
+  forall (f : Bool -> Bool),
+  (forall (x : Bool), f x = x) ->
+  forall (b : Bool), f (f b) = b := by
+  intro f h b
+  rewrite [h, h]
+  rfl
+
+theorem negation_fn_applied_twice :
+  forall (f : Bool -> Bool),
+  (forall (x : Bool), f x = !x) ->
+  forall (b : Bool), f (f b) = b := by
+  intro f h b
+  rewrite [h, h]
+  cases b
+  case true => rfl
+  case false => rfl
+
+-- 別解
+theorem negation_fn_applied_twice2 :
+  forall (f : Bool -> Bool),
+  (forall (x : Bool), f x = !x) ->
+  forall (b : Bool), f (f b) = b := by
+  intro f h b
+  rw [h, h, Bool.not_not]
+  done
+
+theorem andb_eq_orb :
+  forall (b c : Bool),
+  (and b c = or b c) ->
+  b = c := by
+  intro b c h
+  cases b
+  case true =>
+    -- simp at h で h （and b c と or b c）の b を
+    -- true で置き換えたらどうなるかを実際に計算してもらう
+    -- 「計算」とはここでは and と or の定義を展開して書き換えること
+    simp at h
+    rw [h]
+  case false =>
+    -- 同様に
+    -- simp at h で h （and b c と or b c）の b を
+    -- false で置き換えたらどうなるかを実際に計算してもらう
+    simp at h
+    rw [h]
+  done
+
+-- 別解。contraはまだ出てないので「良策ではない」とは恐らくそういう意味
+theorem andb_eq_orb2 :
+  forall (b c : Bool),
+  (and b c = or b c) ->
+  b = c := by
+  intro b c h
+  cases b
+  case true =>
+    cases c
+    case true => rfl
+    case false => contradiction
+  case false =>
+    cases c
+    case true => contradiction
+    case false => rfl
+  done
+
+-- 別解2。contradiction と遠回しにやっていることは同じ
+theorem andb_eq_orb3 :
+  forall (b c : Bool),
+  (and b c = or b c) ->
+  b = c := by
+  intro b c h
+  cases b
+  case true =>
+    cases c
+    case true => rfl
+    case false => cases h
+  case false =>
+    cases c
+    case true => cases h
+    case false => rfl
+  done
+
+#print andb_eq_orb3
+
+inductive Bin : Type where
+  | Z
+  | B0 (n : Bin)
+  | B1 (n : Bin)
+
+/-
+ 11 = 3
+100 = 4
+-/
+def Bin.inc  (m : Bin) : Bin :=
+  match m with
+    | Z => B1 Z
+    | B0 n => B1 n
+    | B1 n => B0 (Bin.inc n)
+
+example : Bin.inc .Z = .B1 .Z := by rfl
+example : Bin.inc (.B1 .Z) = .B0 (.B1 .Z) := by rfl
+example : Bin.inc (.B0 (.B1 .Z)) = .B1 (.B1 .Z) := by rfl
+example : Bin.inc (.B1 (.B1 .Z)) = .B0 (.B0 (.B1 .Z)) := by rfl
+
+def Bin.toNat (m : Bin) : Nat :=
+  match m with
+    | Z => .zero
+    | B0 n => (toNat n) * 2
+    | B1 n => .succ (toNat n * 2)
+
+example : Bin.toNat .Z = 0 := by rfl
+example : Bin.toNat (.B0 .Z) = 0 := by rfl
+example : Bin.toNat (.B1 .Z) = 1 := by rfl
+example : Bin.toNat (.B0 (.B1 .Z)) = 2 := by rfl
+example : Bin.toNat (.B1 (.B1 .Z)) = 3 := by rfl
+
+theorem inc_toNat_eq_toNat_succ : ∀ n : Bin, n.inc.toNat = .succ n.toNat := by
+  intro n
+  cases n
+  case Z => rfl
+  case B0 n' =>
+    simp [Bin.inc, Bin.toNat]
+  case B1 n' =>
+    simp [Bin.inc, Bin.toNat]
+    rw [inc_toNat_eq_toNat_succ]
+    -- 詳しい証明は次の章で再チャレンジ！
+    simp_arith
+  done
