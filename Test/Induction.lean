@@ -150,3 +150,128 @@ theorem myAdd_rearrange2 : forall n m p q : Nat,
   -- 引数を指定することで、書き換える箇所を特定できる！
   rewrite [myAdd_comm n m]
   rfl
+
+theorem myAdd_swap : ∀ n m p : Nat,
+  myAdd n (myAdd m p) = myAdd m (myAdd n p) := by
+  intro n m p
+  -- 引数を指定することで、書き換える箇所を特定できる！
+  -- だからhaveを使わなくても証明できる！
+  rewrite [myAdd_assoc, myAdd_comm n m, myAdd_assoc]
+  rfl
+
+-- comm:  myAdd n m = myAdd m n
+-- assoc: (myAdd n (myAdd m p)) = (myAdd (myAdd n m) p)
+
+def myMult (n m : Nat): Nat :=
+  match n with
+    | .zero => .zero
+    | .succ n' => m + myMult n' m
+
+example : myMult 0 3 = 0 := rfl
+example : myMult 3 0 = 0 := rfl
+example : myMult 3 1 = 3 := rfl
+example : myMult 1 3 = 3 := rfl
+example : myMult 2 3 = 6 := rfl
+example : myMult 3 2 = 6 := rfl
+
+@[simp] theorem myMult_left_zero : ∀ n : Nat,
+  myMult .zero n = .zero := by
+  intro n
+  rfl
+
+@[simp] theorem myMult_right_zero : ∀ n : Nat,
+  myMult n .zero = .zero := by
+  intro n
+  induction n
+  case zero => rfl
+  case succ n' n_ih =>
+    simp only [myMult]
+    -- rw: rewrite と rfl を一緒にやる
+    rw [n_ih]
+
+theorem myMult_right_succ : ∀ n m : Nat,
+  myMult n (Nat.succ m) = n + (myMult n m) := by
+  intro n m
+  induction n
+  case zero => rfl
+  case succ n' n_ih =>
+    simp only [myMult]
+    rw [
+      n_ih,
+      ← Nat.add_assoc,
+      ← Nat.add_assoc,
+      Nat.succ_add,
+      Nat.succ_add n' m,
+      Nat.add_comm m n',
+    ]
+
+-- myMult n 0 = 0
+-- myMult (Nat.succ n) m = n + (myMult n m)
+-- myMult n (Nat.succ m) = m + (myMult n m)
+
+theorem myMult_comm : ∀ m n : Nat,
+  myMult m n = myMult n m := by
+  intro m n
+  induction m
+  -- .zero ではなく zero。
+  -- constructorの名前ではなくgoalの名前なので。
+  -- goalの名前はconstructorの名前から自動でつく
+  case zero =>
+    -- 「@[simp] myMult_right_zero」と書いているので、
+    -- myMult_right_zero を使っての証明を自動で行ってくれる
+    simp
+  case succ m' m_ih =>
+    simp only [myMult]
+    rw [m_ih, myMult_right_succ]
+
+-- Basic.lean の nat 向け leb を Nat 向けに書き直し
+def leb (n m : Nat) : Bool :=
+  match n with
+  | 0 => true
+  | n' + 1 =>
+      match m with
+      | 0 => false
+      | m' + 1 => leb n' m'
+
+infixl:30 " <=? " => leb
+
+theorem leb_refl : ∀ n : Nat,
+  -- n <=? n = true とか書かなくていい！
+  n <=? n := by
+  intro n
+  induction n
+  case zero => rfl
+  case succ n' n_ih =>
+    simp only [leb]
+    rw [n_ih]
+    done
+
+-- Basic.lean の nat 向け eqb を Nat 向けに書き直し
+def eqb (n m : Nat) : Bool :=
+  match n with
+  | 0 =>
+    match m with
+      | 0 => true
+      | _m' + 1 => false
+  | n' + 1 =>
+    match m with
+      | 0 => false
+      | m' + 1=> eqb n' m'
+
+infixl:30 " =? " => eqb
+
+theorem zero_nbeq_S : ∀ n : Nat,
+  ((0 : Nat) =? (n + 1)) = false := by
+  intro n
+  rfl
+
+open example1
+
+theorem andb_false_r : ∀ b : bool,
+  andb b .false = .false := by
+  intro b
+  cases b
+  case true => rfl
+  case false => rfl
+
+#eval Lean.versionString
