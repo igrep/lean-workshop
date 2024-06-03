@@ -16,6 +16,8 @@ def myAdd (n m : Nat) :=
     | .zero => m
     | .succ n' => .succ (myAdd n' m)
 
+infixl:150 " +!+ " => myAdd
+
 example : myAdd 3 4 = 7 := by rfl
 
 theorem myAdd_n_O_firsttry : forall n : Nat,
@@ -43,6 +45,16 @@ theorem myAdd_n_O : ∀ n : Nat,
   case succ n' iH =>
     simp only [myAdd]
     rewrite [← iH]
+    rfl
+
+@[simp] theorem myAdd_zero : ∀ n : Nat,
+  myAdd n 0 = n := by
+  intro n -- Leanでは intro 必須。Coqではなくてもいいらしい
+  induction n
+  case zero => rfl
+  case succ n' iH =>
+    simp only [myAdd]
+    rewrite [iH]
     rfl
 
 #print Nat.mul_succ
@@ -165,7 +177,9 @@ theorem myAdd_swap : ∀ n m p : Nat,
 def myMult (n m : Nat): Nat :=
   match n with
     | .zero => .zero
-    | .succ n' => m + myMult n' m
+    | .succ n' => myAdd m (myMult n' m)
+
+infixl:160 " *!* " => myMult
 
 example : myMult 0 3 = 0 := rfl
 example : myMult 3 0 = 0 := rfl
@@ -185,24 +199,22 @@ example : myMult 3 2 = 6 := rfl
   induction n
   case zero => rfl
   case succ n' n_ih =>
-    simp only [myMult]
+    simp only [myMult, myAdd]
     -- rw: rewrite と rfl を一緒にやる
     rw [n_ih]
 
 theorem myMult_right_succ : ∀ n m : Nat,
-  myMult n (Nat.succ m) = n + (myMult n m) := by
+  myMult n (Nat.succ m) = myAdd n (myMult n m) := by
   intro n m
   induction n
   case zero => rfl
   case succ n' n_ih =>
-    simp only [myMult]
+    simp only [myMult, myAdd]
     rw [
       n_ih,
-      ← Nat.add_assoc,
-      ← Nat.add_assoc,
-      Nat.succ_add,
-      Nat.succ_add n' m,
-      Nat.add_comm m n',
+      myAdd_assoc,
+      myAdd_assoc,
+      myAdd_comm m n',
     ]
 
 -- myMult n 0 = 0
@@ -233,7 +245,7 @@ def leb (n m : Nat) : Bool :=
       | 0 => false
       | m' + 1 => leb n' m'
 
-infixl:30 " <=? " => leb
+infixl:55 " <=? " => leb
 
 theorem leb_refl : ∀ n : Nat,
   -- n <=? n = true とか書かなくていい！
@@ -256,9 +268,9 @@ def eqb (n m : Nat) : Bool :=
   | n' + 1 =>
     match m with
       | 0 => false
-      | m' + 1=> eqb n' m'
+      | m' + 1 => eqb n' m'
 
-infixl:30 " =? " => eqb
+infixl:55 " =? " => eqb
 
 theorem zero_nbeq_S : ∀ n : Nat,
   ((0 : Nat) =? (n + 1)) = false := by
@@ -275,3 +287,96 @@ theorem andb_false_r : ∀ b : bool,
   case false => rfl
 
 #eval Lean.versionString
+
+theorem plus_ble_compat_l : ∀ n m p : Nat,
+  n <=? m → (p + n) <=? (p + m) := by
+  intro n m p h
+  induction p
+  case zero =>
+    simp
+    -- 前提である h に基いて証明
+    -- exact h でも可
+    assumption
+  case succ p' p_ih =>
+    rewrite [Nat.succ_add, Nat.succ_add]
+    -- simp [leb] してもしなくても
+    exact p_ih
+  done
+
+theorem S_nbeq_0 : ∀ n : Nat,
+  (n.succ =? 0) = false := by
+  intro n
+  rfl
+
+theorem mult_1_l : ∀ n : Nat, myMult 1 n = n := by
+  intro n
+  simp [myMult, myAdd]
+
+theorem all3_spec : ∀ b c : Bool,
+  (b && c) || (!b || !c) := by
+  intro b c
+  cases b
+  case true =>
+    cases c
+    case false => rfl
+    case true => rfl
+  case false =>
+    rfl
+  done
+
+theorem mult_plus_distr_r : ∀ n m p : Nat,
+  myMult (myAdd n m) p = myAdd (myMult n p) (myMult m p) := by
+  intro n m p
+  induction n
+  case zero => rfl
+  case succ n' n_ih =>
+    simp [myAdd, myMult]
+    rw [n_ih, myAdd_assoc]
+
+theorem mult_assoc : ∀ n m p : Nat,
+  n *!* (m *!* p) = (n *!* m) *!* p := by
+  intro n m p
+  induction n
+  case zero => rfl
+  case succ n' n_ih =>
+    simp [myMult]
+    --  m *!* p +!+ n' *!* (m *!* p) =
+    -- (m       +!+ n' *!* m) *!* p
+    rw [n_ih]
+    --  m *!* p +!+ n' *!* m  *!* p =
+    -- (m       +!+ n' *!* m) *!* p
+    rw [mult_plus_distr_r]
+  done
+
+theorem eqb_refl : ∀ n : Nat,
+  true = (n =? n) := by
+  intro n
+  induction n
+  case zero => rfl
+  case succ n' n_ih =>
+    simp only [eqb]
+    rw [n_ih]
+    done
+
+theorem plus_swap' : ∀ n m p : Nat,
+  (n +!+ (m +!+ p)) = (m +!+ (n +!+ p)) := by
+  intro n m p
+  rw [
+    myAdd_assoc,
+    myAdd_assoc,
+    myAdd_comm m n
+    ]
+
+
+theorem bin_to_nat_pres_incr : ∀ n : Bin,
+  n.inc.toNat = n.toNat.succ := by
+  intro n
+  induction n
+  case Z => rfl
+  case B0 n' _n_ih =>
+    simp [Bin.inc, Bin.toNat]
+  case B1 n' n_ih =>
+    simp [Bin.inc, Bin.toNat]
+    rw [n_ih]
+    rw [Nat.succ_mul]
+    done
