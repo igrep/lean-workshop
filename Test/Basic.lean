@@ -536,7 +536,7 @@ def plus_may_not_terminate2 (n m : Nat) : Nat :=
   match n with
     | .zero => m
     | .succ _ => .succ (plus_may_not_terminate2 (n - 1) m)
-  termination_by _ n => n
+  termination_by n
   decreasing_by sorry
 
 -- これはダメ
@@ -660,12 +660,13 @@ inductive Bin : Type where
   | Z
   | B0 (n : Bin)
   | B1 (n : Bin)
+  deriving Repr
 
 /-
  11 = 3
 100 = 4
 -/
-def Bin.inc  (m : Bin) : Bin :=
+def Bin.inc (m : Bin) : Bin :=
   match m with
     | Z => B1 Z
     | B0 n => B1 n

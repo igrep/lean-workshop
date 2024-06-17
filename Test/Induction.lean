@@ -380,3 +380,148 @@ theorem bin_to_nat_pres_incr : ∀ n : Bin,
     rw [n_ih]
     rw [Nat.succ_mul]
     done
+
+-- nat_to_bin (n:nat) : bin
+def Bin.ofNat (n:Nat) : Bin :=
+  match n with
+  | .zero => .Z
+  | .succ n' => Bin.inc (Bin.ofNat n')
+
+example : Bin.ofNat 0 = .Z := by rfl
+example : Bin.ofNat 1 = .B1 .Z := by rfl
+example : Bin.ofNat 2 = .B0 (.B1 .Z) := by rfl
+example : Bin.ofNat 3 = .B1 (.B1 .Z) := by rfl
+
+theorem inc_bin_ofNat : ∀ n, Bin.inc (Bin.ofNat n) = Bin.ofNat (.succ n) := by
+  intro n
+  cases n
+  case zero => rfl
+  case succ n' =>
+    simp only [Bin.ofNat]
+  done
+
+theorem inc_bin_toNat : ∀ b, Bin.toNat (Bin.inc b) = .succ (Bin.toNat b) := by
+  intro b
+  induction b
+  case Z => rfl
+  case B0 b' _b_ih =>
+    simp [Bin.toNat]
+    done
+  case B1 b' b_ih =>
+    simp [Bin.toNat]
+    rw [b_ih]
+    generalize Bin.toNat b' = x
+    rw [Nat.succ_mul]
+    done
+
+theorem nat_bin_nat : ∀ n, Bin.toNat (Bin.ofNat n) = n := by
+  intro n
+  induction n
+  case zero => rfl
+  case succ n' n_ih =>
+    simp only [Bin.ofNat]
+    rw [inc_bin_toNat, n_ih]
+    done
+
+-- (b) 逆方向も示した方がいいのでは？と思うでしょう。
+-- 逆とはつまり、2進数を自然数に変換し、それをまた2進数に戻すと、
+-- 元の2進数になる、というものです。 しかし、これは正しくありません。
+-- なぜそうなるのかを（コメントとして）説明しなさい。
+--
+-- 回答例: 同じNatに対して複数のBin型による表現が存在しうるため、
+-- あるBin型の値をNatに変換してからまたBin型の値に変換すると、
+-- 異なる表現のBin型の値になってしまう可能性があるため。
+-- 例:
+#eval Bin.toNat (.B0 .Z) -- 結果は0だが、正しい表現ではない
+#eval Bin.toNat (.B0 (.B0 .Z)) -- こちらも結果は0だが以下略
+#eval Bin.toNat (.B1 (.B0 .Z)) -- こちらは結果は1だが以下略
+
+def Bin.isZero (b : Bin): Bool :=
+  match b with
+  | .Z => true
+  | .B0 b' => Bin.isZero b'
+  | .B1 _b' => false
+
+theorem Bin.isZero_toNat (b : Bin) (h : Bin.toNat b = 0) :
+  Bin.isZero b := by
+  induction b
+  case Z => rfl
+  case B1 b' _b_ih =>
+    simp [Bin.toNat] at h
+    done
+  case B0 b' b_ih =>
+    simp [Bin.toNat] at h
+    simp [Bin.isZero]
+    apply b_ih
+    generalize (toNat b') = x at h ⊢
+    cases x
+    case zero => rfl
+    case succ x' =>
+      rw [Nat.succ_mul] at h
+      rw [Nat.add_succ] at h
+      simp at h
+    done
+
+def Bin.normalize (b : Bin): Bin :=
+  match b with
+  | .Z => .Z
+  | .B1 b' => .B1 (Bin.normalize b')
+  | .B0 b' =>
+    if Bin.isZero b' then
+      .Z
+    else
+      .B0 (Bin.normalize b')
+
+#eval Bin.normalize (.B0 .Z)
+#eval Bin.normalize (.B0 (.B0 .Z))
+#eval Bin.normalize (.B1 (.B0 .Z))
+#eval Bin.toNat (Bin.normalize (.B0 (.B1 .Z)))
+#eval Bin.toNat (.B0 (.B1 .Z))
+
+theorem ofNat_double_zero (n : Nat) (h : n = 0):
+  Bin.ofNat (n * 2) = .Z := by
+  rw [h]
+  rfl
+  done
+
+theorem ofNat_double_nonzero (n : Nat) (h : n ≠ 0):
+  Bin.ofNat (n * 2) = .B0 (Bin.ofNat n) := by
+  induction n
+  case zero =>
+    simp only [Bin.ofNat]
+    apply h
+    rfl
+  case succ n' n_ih =>
+    simp [Bin.ofNat, Nat.succ_add]
+    rw [show n' + n' = n' * 2 from by simp_arith]
+    clear h
+    by_cases h : n' = 0
+    case pos =>
+      simp [h]
+      rfl
+      done
+    case neg =>
+      rw [n_ih h]
+      rfl
+      done
+    done
+
+theorem normalize_ofNat_toNat : ∀ b,
+  Bin.ofNat (Bin.toNat b) = Bin.normalize b := by
+  intro b
+  induction b
+  case Z => rfl
+  case B1 b' b_ih =>
+    simp only [Bin.ofNat, Bin.normalize]
+    cases b'_isZero : Bin.isZero b'
+    case false =>
+      rw [ofNat_double_nonzero (Bin.toNat b')]
+      . rw [b_ih]
+        rfl
+      . -- TODO: 次回はここから！
+      done
+    case true =>
+      done
+    done
+  case B0 b' b_ih =>
+    done
