@@ -536,7 +536,7 @@ def plus_may_not_terminate2 (n m : Nat) : Nat :=
   match n with
     | .zero => m
     | .succ _ => .succ (plus_may_not_terminate2 (n - 1) m)
-  termination_by _ n => n
+  termination_by n
   decreasing_by sorry
 
 -- これはダメ
