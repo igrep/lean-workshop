@@ -506,6 +506,44 @@ theorem ofNat_double_nonzero (n : Nat) (h : n ≠ 0):
       done
     done
 
+theorem toNatBin_isZero
+  (h : Bin.isZero b = true):
+  (Bin.toNat b) = 0 := by
+  induction b
+  case Z => rfl
+  case B1 b' _b_ih =>
+    exfalso
+    simp only [Bin.isZero] at h
+    done
+  case B0 b' b_ih =>
+    simp only [Bin.isZero] at h
+    simp only [Bin.toNat]
+    replace b_ih := b_ih h
+    rw [b_ih]
+    done
+
+theorem toNatBin_isntZero
+  (h : Bin.isZero b = false):
+  (Bin.toNat b) ≠ 0 := by
+  induction b
+  case Z =>
+    exfalso
+    simp only [Bin.isZero] at h
+    done
+  case B1 _b' _b_ih =>
+    simp [Bin.toNat]
+  case B0 b' b_ih =>
+    simp [Bin.toNat]
+    simp [Bin.isZero] at h
+    replace b_ih := b_ih h
+    generalize b'.toNat = n at *
+    intro hn
+    apply b_ih
+    calc
+      n = (n * 2) / 2 := by rw [Nat.mul_div_cancel n (Nat.le.step Nat.le.refl)]
+      _ = 0 / 2 := by rw [hn]
+      _ = 0 := by rfl
+
 theorem normalize_ofNat_toNat : ∀ b,
   Bin.ofNat (Bin.toNat b) = Bin.normalize b := by
   intro b
@@ -515,13 +553,30 @@ theorem normalize_ofNat_toNat : ∀ b,
     simp only [Bin.ofNat, Bin.normalize]
     cases b'_isZero : Bin.isZero b'
     case false =>
-      rw [ofNat_double_nonzero (Bin.toNat b')]
-      . rw [b_ih]
-        rfl
-      . -- TODO: 次回はここから！
+      have := toNatBin_isntZero b'_isZero
+      rw [ofNat_double_nonzero (Bin.toNat b') this]
+      rw [b_ih]
+      rfl
       done
     case true =>
+      have := toNatBin_isZero b'_isZero
+      rw [this]
+      simp [Bin.ofNat, Bin.inc]
+      rw [← b_ih, this]
+      rfl
       done
     done
   case B0 b' b_ih =>
-    done
+    simp only [Bin.toNat, Bin.normalize]
+    cases b'_isZero : Bin.isZero b'
+    case false =>
+      simp
+      have := toNatBin_isntZero b'_isZero
+      rw [ofNat_double_nonzero b'.toNat this, b_ih]
+      done
+    case true =>
+      simp
+      have := toNatBin_isZero b'_isZero
+      rw [this]
+      rfl
+      done
