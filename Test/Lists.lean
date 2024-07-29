@@ -238,3 +238,210 @@ def cheat (b : Bool) : Bool :=
 #eval true || (dbg_trace "evaluated!" ; false)
 #eval (dbg_trace "evaluated!" ; false) || true
 #eval (dbg_trace "evaluated!" ; false) || false
+
+def Bag.removeOne (v: Nat) (s: Bag): Bag :=
+  match s with
+  | [||] => s
+  | h :: t =>
+    if h == v then
+      t
+    else
+      h :: removeOne v t
+
+#guard Bag.count 5 (Bag.removeOne 5 [|2;1;5;4;1|]) = 0
+#guard Bag.count 5 (Bag.removeOne 5 [|2;1;4;1|]) = 0
+#guard Bag.count 4 (Bag.removeOne 5 [|2;1;4;5;1;4|]) = 2
+#guard Bag.count 5 (Bag.removeOne 5 [|2;1;5;4;5;1;4|]) = 1
+
+def Bag.removeAll (v: Nat) (s: Bag): Bag :=
+  s.filter (· ≠ v)
+
+#guard Bag.count 5 (Bag.removeAll 5 [|2;1;5;4;1|]) = 0
+#guard Bag.count 5 (Bag.removeAll 5 [|2;1;4;1|]) = 0
+#guard Bag.count 4 (Bag.removeAll 5 [|2;1;4;5;1;4|]) = 2
+#guard Bag.count 5 (Bag.removeAll 5 [|2;1;5;4;5;1;4;5;1;4|]) = 0
+
+def Bag.subset (s1: Bag) (s2: Bag): Bool :=
+  match s1 with
+  | [||] => true
+  | h1 :: t1 =>
+    if Bag.member h1 s2 then
+      Bag.subset t1 (Bag.removeOne h1 s2)
+    else
+      false
+
+#guard Bag.subset [|1;2|] [|2;1;4;1|] = true
+#guard Bag.subset [|1;2;2|] [|2;1;4;1|] = false
+
+example : ∀ (n : Nat) (s: Bag),
+  Bag.count n (Bag.removeAll n s) = 0 := by
+  intro n s
+  induction s
+  case Nil =>
+    rfl
+    done
+  case Cons h t t_ih =>
+    -- decide: PropじゃなくてBoolを返さないといけないので変換する関数
+    rw [Bag.removeAll, NatList.filter]
+    split -- if式を分割する
+    case inl =>
+      rw [Bag.count, NatList.filter]
+      split
+      case inl =>
+        -- simp_all だけでもよい！simp_allすごい！
+        rename_i h1 h2
+        simp at h1 h2
+        contradiction
+        done
+      case inr =>
+        rw [Bag.removeAll, Bag.count] at t_ih
+        exact t_ih
+        done
+    case inr =>
+      rw [Bag.removeAll] at t_ih
+      exact t_ih
+      done
+
+theorem nil_app : ∀ l : NatList, [||] ++ l = l := by
+  intros
+  rfl
+
+theorem tl_length_pred : ∀ l : NatList,
+  (l.length).pred = (tl l).length := by
+  intro l
+  cases l
+  case Nil => rfl
+  case Cons _h _t => rfl
+
+
+theorem app_assoc :∀ l1 l2 l3 : NatList,
+  (l1 ++ l2) ++ l3 = l1 ++ (l2 ++ l3) := by
+  intro l1 l2 l3
+  induction l1
+  case Nil =>
+    rfl
+    done
+  case Cons h l1_t ih_l1_t =>
+    simp [HAppend.hAppend, Append.append, NatList.append]
+    exact ih_l1_t
+    done
+
+def NatList.rev (l : NatList): NatList :=
+  match l with
+  | [||] => [||]
+  | h :: t => t.rev ++ [|h|]
+
+#guard [|1;2;3|].rev = [|3;2;1|]
+
+theorem rev_length_firsttry : ∀ l : NatList,
+  l.rev.length = l.length := by
+  intro l
+  induction l
+  case Nil =>
+    rfl
+    done
+  case Cons n l' ih_l' =>
+    rw [NatList.rev, NatList.length, ← ih_l']
+    sorry
+
+theorem app_length : ∀ l1 l2 : NatList,
+  (l1 ++ l2).length = l1.length + l2.length := by
+  intro l1 l2
+  induction l1
+  case Nil =>
+    simp [
+      HAppend.hAppend,
+      Append.append,
+      NatList.append,
+      NatList.length,
+      ]
+    done
+  case Cons h l1_t ih_l1_t =>
+    simp [
+      HAppend.hAppend,
+      Append.append,
+      NatList.append,
+      NatList.length,
+      ] at ih_l1_t ⊢
+      -- ^^^^^^^^^^^^
+      -- ⊢ は、goalを表す記号。ih_l1_tとgoal両方をrwする
+    rw [
+      ih_l1_t,
+      Nat.add_assoc,
+      Nat.add_comm l2.length,
+      Nat.add_assoc,
+      ]
+      -- ac_rfl でもよい
+    done
+
+theorem rev_length : ∀ l : NatList,
+  l.rev.length = l.length := by
+  intro l
+  induction l
+  case Nil =>
+    rfl
+    done
+  case Cons n l' ih_l' =>
+    rw [
+      NatList.rev,
+      NatList.length,
+      app_length,
+      ih_l',
+      ]
+    rfl
+    done
+
+@[simp]
+theorem app_cons : ∀ (l l' : NatList) (n : Nat),
+  (n :: l) ++ l' = n :: (l ++ l') := by
+  intros
+  rfl
+
+@[simp]
+theorem app_nil_l : ∀ l : NatList,
+  [||] ++ l = l := by
+  intros
+  rfl
+
+@[simp]
+theorem app_nil_r : ∀ l : NatList,
+  l ++ [||] = l := by
+  intro l
+  induction l
+  case Nil =>
+    rfl
+    done
+  case Cons h l' ih_l' =>
+    simp
+    rw [ih_l']
+    done
+
+theorem rev_app_distr: ∀ l1 l2 : NatList,
+  (l1 ++ l2).rev = l2.rev ++ l1.rev := by
+  intro l1 l2
+  induction l1
+  case Nil =>
+    rw [NatList.rev]
+    simp
+    done
+  case Cons h l1_t ih_l1_t =>
+    simp
+    rw [
+      NatList.rev,
+      ih_l1_t,
+      NatList.rev,
+      app_assoc,
+      ]
+    done
+
+theorem rev_involutive : ∀ l : NatList,
+  l.rev.rev = l := by
+  intro l
+  induction l
+  case Nil =>
+    rfl
+    done
+  case Cons h l' ih_l' =>
+    rw [NatList.rev, rev_app_distr, ih_l']
+    rfl
+    done
