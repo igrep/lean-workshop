@@ -445,3 +445,101 @@ theorem rev_involutive : ∀ l : NatList,
     rw [NatList.rev, rev_app_distr, ih_l']
     rfl
     done
+
+theorem app_assoc4 : ∀ l1 l2 l3 l4 : NatList,
+  l1 ++ (l2 ++ (l3 ++ l4)) = ((l1 ++ l2) ++ l3) ++ l4 := by
+  intro l1 l2 l3 l4
+  rw [app_assoc, app_assoc]
+  done
+
+theorem nonzeros_app : forall l1 l2 : NatList,
+  nonzeros (l1 ++ l2) = (nonzeros l1) ++ (nonzeros l2) := by
+  intro l1 l2
+  simp [
+    HAppend.hAppend,
+    Append.append,
+    NatList.append,
+    nonzeros
+  ]
+  induction l1
+  case Nil =>
+    rfl
+    done
+  case Cons h l1_t ih_l1_t =>
+    cases h
+    case zero =>
+      simp [nonzeros]
+      rw [ih_l1_t]
+      done
+    case succ n =>
+      simp [nonzeros]
+      rw [ih_l1_t]
+      simp [NatList.append]
+      done
+
+def eqblist (l1 l2 : NatList) : Bool :=
+  match l1, l2 with
+  | [||], [||] => true
+  | h1 :: t1, h2 :: t2 =>
+    h1 == h2 && eqblist t1 t2
+  | _, _ => false
+
+example : eqblist .Nil .Nil := rfl
+example : eqblist [|1;2;3|] [|1;2;3|] := rfl
+example : eqblist [|1;2;3|] [|1;2;3;4|] = false := rfl
+example : eqblist [|1;2;3|] [|1;2;4|] = false := rfl
+
+theorem eqblist_refl : ∀ l : NatList,
+  eqblist l l := by
+  intro l
+  induction l
+  case Nil =>
+    rfl
+  case Cons n l l_ih =>
+    simp [eqblist, l_ih]
+    done
+
+theorem count_member_nonzero : ∀ (s : Bag),
+  1 <=? (Bag.count 1 (1 :: s)) := by
+  intro s
+  -- simp [Bag.count, NatList.filter, leb]
+  rfl
+
+theorem leb_n_Sn : ∀ n,
+  n <=? (.succ n) := by
+  intro n
+  induction n
+  case zero => rfl
+  case succ n n_ih =>
+    simp [leb]
+    rw [n_ih]
+    done
+
+theorem remove_does_not_increase_count: ∀ (s : Bag),
+  ((s.removeOne 0).count 0) <=? (s.count 0) := by
+  intro s
+  induction s
+  case Nil =>
+    rfl
+  case Cons h t s_ih =>
+    cases h
+    case zero =>
+      simp [Bag.removeOne]
+      have : Bag.count 0 (0 :: t) = .succ (Bag.count 0 t) := by
+        rfl
+        done
+      rw [this, leb_n_Sn]
+      done
+    case succ h =>
+      simp [Bag.removeOne]
+      have : ∀ (t' : Bag), Bag.count 0 ((h + 1) :: t') = (Bag.count 0 t') := by
+        intro t'
+        rfl
+        done
+      simp [this, s_ih]
+      done
+
+-- TODO: もっといい定理は次回！
+theorem count0equalsSumNil :
+  (Bag.sum [||] [||]).count 0 = 0 := by
+  rfl
