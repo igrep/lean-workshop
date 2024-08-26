@@ -539,7 +539,153 @@ theorem remove_does_not_increase_count: ∀ (s : Bag),
       simp [this, s_ih]
       done
 
--- TODO: もっといい定理は次回！
-theorem count0equalsSumNil :
-  (Bag.sum [||] [||]).count 0 = 0 := by
-  rfl
+theorem count0equalsSumNil : ∀ (n : Nat) (b1 b2 : Bag),
+  (b1.sum b2).count n = b1.count n + b2.count n := by
+  intro n b1 b2
+  induction b1
+  case Nil =>
+    have count_n_nil_0 : Bag.count n NatList.Nil = 0 := by
+      rfl
+    have sum_nil_id : Bag.sum NatList.Nil b2 = b2 := by
+      rfl
+    rw [count_n_nil_0, sum_nil_id, Nat.zero_add]
+    done
+    -- 別解
+    -- simp [
+    --   Bag.count,
+    --   Bag.sum,
+    --   NatList.filter,
+    --   NatList.length,
+    --   NatList.append,
+    --   ]
+    -- conv で部分的な式を書き換えられないか、
+    -- って事で試したがうまく行かず
+    -- conv =>
+    --   lhs ; arg 2 ; rw [show _ = b2 from rfl] ; rfl
+  case Cons n' b1' b1_ih =>
+    -- Bag.count n (Bag.sum b1' b2)
+    -- Bag.count n b1' + Bag.count n b2
+    --
+    -- Bag.count n (Bag.sum (n' :: b1') b2)
+    -- Bag.count n (n' :: b1') + Bag.count n b2
+    have sum_cons :
+      Bag.sum (n' :: b1') b2 = n' :: Bag.sum b1' b2 :=
+      rfl
+    -- Bag.count n (n' :: Bag.sum b1' b2)
+    -- Bag.count n (n' :: b1') + Bag.count n b2
+    rw [sum_cons]
+    have : ∀ b1', Bag.count n (n' :: b1') =
+      Bag.count n b1' + (if n' = n then 1 else 0) := by
+      intro b1'
+      simp [Bag.count, NatList.filter]
+      split
+      case inl h =>
+        rfl
+        done
+      case inr =>
+        rfl
+        done
+    simp [
+      this,
+      b1_ih,
+      Nat.add_comm,
+      Nat.add_assoc,
+      ]
+    done
+
+theorem rev_nil : ∀ (l : NatList),
+  l.rev = .Nil -> l = .Nil := by
+  intro l h
+  cases l
+  case Nil => rfl
+  case Cons l' =>
+    -- goal が False なので、
+    -- 前提に False があることを使って証明しないといけない
+    simp [NatList.rev] at h
+    revert h
+    cases l'.rev
+    case Nil =>
+      intro h
+      rw [app_nil_l] at h
+      nomatch h
+      done
+    case Cons n l_rev' =>
+      intro h
+      simp [
+        HAppend.hAppend,
+        Append.append,
+        NatList.append,
+      ] at h
+      done
+
+theorem append_eq_last {l1 l2 n m} :
+  l1 ++ (n :: NatList.Nil) = l2 ++ (m :: NatList.Nil)
+  -> l1 = l2 ∧ n = m := by
+    revert l2 n m
+    induction l1
+    case Nil =>
+      intro l2 n m h
+      simp [
+        HAppend.hAppend,
+        Append.append,
+        NatList.append,
+      ] at h
+      cases l2
+      case Nil =>
+        simp [NatList.append] at h
+        simp [h]
+      case Cons m' l2_t =>
+        simp [NatList.append] at h
+        cases l2_t
+        case Nil =>
+          simp [NatList.append] at h
+          done
+        case Cons m' l2_t' =>
+          simp [NatList.append] at h
+          done
+    case Cons n' l1_t ih_l1 =>
+      intro l2 n m h
+      simp [
+        HAppend.hAppend,
+        Append.append,
+        NatList.append,
+      ] at h
+      cases l2
+      case Nil =>
+        simp [NatList.append] at h
+        cases l1_t
+        case Nil =>
+          simp [NatList.append] at h
+          done
+        case Cons n' l1_t' =>
+          simp [NatList.append] at h
+          done
+      case Cons m' l2_t =>
+        simp [NatList.append] at h
+        cases h ; rename_i left right
+        have := ih_l1 right
+        simp [left, this]
+
+theorem rev_injective : ∀ (l1 l2 : NatList),
+  l1.rev = l2.rev -> l1 = l2 := by
+  intro l1 l2 h
+  induction l1 generalizing l2
+  case Nil =>
+    simp [NatList.rev] at h
+    rw [rev_nil l2 h.symm]
+    done
+  case Cons n l1_t ih_l1' =>
+    cases l2
+    case Nil =>
+      rw [NatList.rev] at h
+      have : n :: l1_t = .Nil :=
+        -- _ は自動で推論してもらうために指定。
+        -- explicit な引数を強引に implicit にする役割
+        rev_nil _ h
+      nomatch this
+    case Cons m l2_t =>
+      simp [NatList.rev] at h
+      -- ∧ を分解して left と right
+      have ⟨left, right⟩ := append_eq_last h
+      rw [ih_l1' l2_t left, right]
+      done
