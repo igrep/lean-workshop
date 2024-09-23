@@ -689,3 +689,125 @@ theorem rev_injective : ∀ (l1 l2 : NatList),
       have ⟨left, right⟩ := append_eq_last h
       rw [ih_l1' l2_t left, right]
       done
+
+theorem rev_injective_easier : ∀ (l1 l2 : NatList),
+  l1.rev = l2.rev -> l1 = l2 := by
+  intro l1 l2 h
+  rw [
+    ← rev_involutive l1,
+    h,
+    rev_involutive l2
+    ]
+  done
+
+def nth_bad (l:NatList) (n:Nat) : Nat :=
+  match l with
+  | [||] => 42 -- 見つからなかった時のデフォルト値が必要
+  | a :: l' =>
+    match n with
+    | 0 => a
+    | n' + 1 => nth_bad l' n'
+
+inductive NatOption : Type :=
+  | Some : Nat -> NatOption
+  | None : NatOption
+  deriving DecidableEq
+
+def nth_error (l:NatList) (n:Nat) : NatOption :=
+  match l with
+  | [||] => .None
+  | a :: l' =>
+    match n with
+    | 0 => .Some a
+    | n' + 1 => nth_error l' n'
+
+#guard nth_error [|4;5;6;7|] 0 = .Some 4
+#guard nth_error [|4;5;6;7|] 3 = .Some 7
+#guard nth_error [|4;5;6;7|] 4 = .None
+#guard nth_error [|4;5;6;7|] 9 = .None
+
+def option_elim (d : Nat) (o : NatOption) : Nat :=
+  match o with
+  | .Some n' => n'
+  | .None => d
+
+def hd_error (l : NatList) : NatOption :=
+  match l with
+  | [||] => .None
+  | a :: _l' => .Some a
+
+#guard hd_error [||] = .None
+#guard hd_error [|1|] = .Some 1
+#guard hd_error [|5;6|] = .Some 5
+
+theorem option_elim_hd : ∀ (l:NatList) (default:Nat),
+  hd default l = option_elim default (hd_error l) := by
+  intro l default
+  cases l
+  case Nil => rfl
+  case Cons h tl =>
+    rfl
+
+-- Id型は既にあるのでMyIdに。
+inductive MyId : Type :=
+  | MyId (n : Nat)
+  deriving DecidableEq
+
+-- eqb_id_refl は省略
+
+inductive PartialMap : Type :=
+  | Empty
+  | Record (i : MyId) (v : Nat) (m : PartialMap)
+
+def PartialMap.update
+  (d : PartialMap)
+  (x : MyId)
+  (value : Nat)
+  : PartialMap :=
+  .Record x value d
+
+def PartialMap.find (x : MyId) (d : PartialMap) : NatOption :=
+  match d with
+  | .Empty => .None
+  | .Record y v d' =>
+    if x = y then
+      .Some v
+    else
+      find x d'
+
+theorem update_eq :
+  ∀ (d : PartialMap) (x : MyId) (v: Nat),
+    (d.update x v).find x = .Some v := by
+  intro d x v
+  simp [PartialMap.update]
+  simp [PartialMap.find]
+
+theorem update_neq :
+  ∀ (d : PartialMap) (x y : MyId) (o: Nat),
+    x ≠ y ->  (d.update y o).find x = d.find x := by
+  intro d x y o
+  simp [PartialMap.update]
+  simp [PartialMap.find]
+  intro hneq heq
+  contradiction
+  done
+
+-- 収束しない再帰型なので、事実上0では？
+inductive Baz : Type :=
+  | Baz1 (x : Baz)
+  | Baz2 (y : Baz) (b : Bool)
+
+theorem no_Baz_value (baz : Baz) : False := by
+  induction baz
+  case Baz1 =>
+    contradiction
+  case Baz2 =>
+    contradiction
+
+theorem no_Nat_value (n : Nat) : False := by
+  induction n
+  case zero =>
+    -- 仮定にFalseが存在しないので contradiction は使えない
+    sorry
+  case succ n =>
+    contradiction
