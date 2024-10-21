@@ -205,7 +205,6 @@ notation "(|" a:60 ", " b:60 ")" => MyProd.Pair a b
 #check (99, "", true)
 #check ((99, ""), true)
 
--- orphan instance を避けるためにnamspace scopedにする
 namespace MyProd
 -- -- type_scope はLeanにはないっぽい？
 -- scoped instance : Mul Type where
@@ -253,3 +252,191 @@ def split
 #guard split [(|1, false), (|2, false)] = (|[1, 2], [false, false])
 
 end MyProd
+
+#check Option.some 1
+
+namespace OptionPlayground
+
+inductive Option (X : Type) : Type where
+  | Some (x : X)
+  | None : Option X
+  deriving DecidableEq
+
+def nth_error
+  {X : Type}
+  (l : List X)
+  (n : Nat) : Option X :=
+  match l with
+  | [] => Option.None
+  | a :: l' =>
+    if n = 0 then Option.Some a else nth_error l' n.pred
+
+-- = は本来Prop用なので、BEq用の == を使う
+#guard nth_error [4,5,6,7] 0 == Option.Some 4
+#guard nth_error [[1],[2]] 1 == Option.Some [2]
+#guard nth_error [true] 2 == Option.None
+
+def hd_error {X : Type} (l : List X) : Option X :=
+  match l with
+  | [] => Option.None
+  | a :: _ => Option.Some a
+
+#check hd_error
+#check @hd_error Nat
+#check hd_error (X := Nat)
+
+#guard hd_error [1,2] == Option.Some 1
+#guard hd_error [[1],[2]] == Option.Some [1]
+#guard hd_error (X := Bool) [] == Option.None
+
+end OptionPlayground
+
+def doit3times {X : Type} (f : X → X) (n : X) : X :=
+  f (f (f n))
+
+#guard doit3times (· - 2) 9 == 3
+#guard doit3times Bool.not true == false
+
+def filter
+  {X : Type}
+  (test : X → Bool)
+  (l : List X) : (List X) :=
+  match l with
+  | [] => []
+  | h :: t =>
+    if test h then
+      h :: (filter test t)
+    else
+      filter test t
+
+#guard filter evenb [1, 2, 3, 4] == [2, 4]
+
+def length_is_1 {X : Type} (l : List X) : Bool :=
+  (length l) =? 1
+
+#guard filter length_is_1
+           [ [1, 2], [3], [4], [5,6,7], [], [8] ]
+  == [ [3], [4], [8] ]
+
+def countOddMembers' (l : List Nat) : Nat :=
+  length (filter oddb l)
+
+#guard countOddMembers' [1, 0, 3, 1, 4, 5] = 4
+#guard countOddMembers' [0, 2, 4] = 0
+#guard countOddMembers' .nil = 0
+
+#guard doit3times (fun n => n * n) 2 = 256
+#guard filter (fun l => (length l) =? 1)
+           [ [1, 2], [3], [4], [5,6,7], [], [8] ]
+  = [ [3], [4], [8] ]
+
+def filter_even_gt7 (l : List Nat) : List Nat :=
+  l.filter (fun n => evenb n && n > 7)
+
+#guard filter_even_gt7 [1, 2, 6, 9, 10, 3, 12, 8]
+  == [10, 12, 8]
+
+#guard filter_even_gt7 [5, 2, 6, 19, 129] = []
+
+def partition
+  {X : Type}
+  (test : X -> Bool)
+  (l : List X) : List X × List X :=
+  (filter test l, filter (fun x => (test x).not) l)
+
+#guard partition oddb [1, 2, 3, 4, 5] = ([1, 3, 5], [2, 4])
+#guard partition (fun _x => false) [5, 9, 0] = ([], [5, 9, 0])
+
+def map {X Y : Type} (f : X → Y) (l : List X) : (List Y) :=
+  match l with
+  | [] => []
+  | h :: t => f h :: map f t
+
+#guard map (fun x => plus 3 x) [2, 0, 2] = [5, 3, 5]
+#guard map oddb [2, 1, 2, 5] = [false, true, false, true]
+#guard map (fun n => [evenb n, oddb n]) [2, 1, 2, 5]
+  = [[true, false], [false, true], [true, false], [false, true]]
+
+theorem map_append_distrib
+  : ∀ (X Y : Type) (f : X -> Y) (l1 l2 : List X),
+  map f (l1 ++ l2) = map f l1 ++ map f l2 := by
+  intro X Y f l1 l2
+  induction l1
+  case nil => rfl
+  case cons h1 t1 t1_ih =>
+    simp [map, t1_ih]
+    done
+
+theorem map_rev : ∀ (X Y : Type) (f : X -> Y) (l : List X),
+  map f (rev l) = rev (map f l) := by
+  intro X Y f l
+  induction l
+  case nil => rfl
+  case cons h t t_ih =>
+    simp [
+      rev,
+      map,
+      map_append_distrib,
+      t_ih,
+      ]
+  done
+
+def flat_map
+  {X Y: Type}
+  (f: X -> List Y)
+  (l: List X) : (List Y) :=
+  match l with
+  | [] => []
+  | h :: t => f h ++ flat_map f t
+
+#guard flat_map (fun n => [n, n+1, n+2]) [1, 5, 10]
+      = [1,  2,  3,  5,  6,  7,  10,  11,  12]
+#guard flat_map (fun n => [n, n, n]) [1, 5, 4]
+  = [1, 1, 1, 5, 5, 5, 4, 4, 4]
+
+def option_map
+  {X Y : Type}
+  (f : X -> Y)
+  (xo : Option X) : Option Y :=
+  match xo with
+    | .none => .none
+    | .some x => .some (f x)
+
+#guard @flat_map Nat Nat (fun n => [n, n, n]) [1, 5, 4]
+  = [1, 1, 1, 5, 5, 5, 4, 4, 4]
+#guard flat_map (Y := Nat) (X := Nat) (fun n => [n, n, n]) [1, 5, 4]
+  = [1, 1, 1, 5, 5, 5, 4, 4, 4]
+#guard partition (X := Nat) (fun _x => false) [5, 9, 0] = ([], [5, 9, 0])
+
+def fold
+  {X Y : Type}
+  (f: X → Y → Y)
+  (l: List X)
+  (b: Y) : Y :=
+  match l with
+  | [] => b
+  | h :: t => f h (fold f t b)
+
+#check fold and
+#guard fold mult [1, 2, 3, 4] 1 = 24
+#guard fold and [true, true, false, true] true = false
+#guard fold app [[1], [], [2, 3], [4]] [] = [1, 2, 3, 4]
+
+def filter'
+  {X : Type}
+  (test : X → Bool)
+  (l : List X) : (List X) :=
+  fold (fun x l' => if test x then (x :: l') else l' ) l []
+
+theorem filter_filter'
+  : ∀
+  {X : Type}
+  (test : X → Bool)
+  (l : List X),
+  filter test l = filter' test l := by
+  intro X test l
+  induction l
+  case nil => rfl
+  case cons h t t_ih =>
+    rw [filter, t_ih]
+    rfl
