@@ -71,7 +71,7 @@ def id'' X x := (x : X)
 def repeat''' {X : Type} (x : X) (count : Nat) : List X :=
   match count with
   | 0 => .nil
-  | count' + 1=> .cons x (repeat''' x count')
+  | count' + 1 => .cons x (repeat''' x count')
 
 -- Xを暗黙の引数としているので、
 -- .true だとどの型の true か分からずエラーに。
@@ -440,3 +440,140 @@ theorem filter_filter'
   case cons h t t_ih =>
     rw [filter, t_ih]
     rfl
+
+def constfun {X: Type} (x: X) : Nat -> X :=
+  fun (_ : Nat) => x
+
+def ftrue := constfun true
+
+#guard ftrue 0 = true
+#guard (constfun 5) 99 = 5
+#guard constfun 5 99 = 5
+
+#check plus
+#check plus 2
+
+def plus3 := plus 3
+#check plus3
+
+#guard plus3 4 = 7
+#guard doit3times plus3 0 = 9
+#guard doit3times (plus 3) 0 = 9
+
+def foldLength {X : Type} (l : List X) : Nat :=
+  fold (fun _ n => .succ n) l 0
+
+#guard foldLength [4, 7, 0] = 3
+
+theorem foldLengthCorrect : ∀ X (l : List X),
+  foldLength l = length l := by
+  intro X l
+  simp [foldLength]
+  induction l
+  case nil => rfl
+  case cons _ t t_ih =>
+    simp [length, fold]
+    -- コンテキストにある前提を適当に使って証明を進める
+    assumption
+    done
+
+def foldMap {X Y: Type} (f: X → Y) (l: List X) : List Y :=
+  fold (fun x xs => f x :: xs) l []
+
+theorem foldMapCorrect : ∀ X Y (f : X → Y) (l : List X),
+  foldMap f l = map f l := by
+  intro X Y f l
+  simp [foldMap]
+  induction l
+  case nil => rfl
+  case cons h t t_ih =>
+  simp [map, fold]
+  assumption
+  done
+
+def prodCurry {X Y Z : Type}
+  (f : X × Y -> Z) (x : X) (y : Y) : Z := f (x, y)
+
+def prodUncurry {X Y Z : Type}
+  (f : X -> Y -> Z) (p : X × Y) : Z := f p.fst p.snd
+
+theorem prodCurryProdUncurry : ∀
+  X Y Z (f : X × Y → Z),
+  prodUncurry (prodCurry f) = f := by
+  intro X Y Z f
+  rfl
+
+theorem prodUncurryProdCurry : ∀
+  X Y Z (f : X → Y → Z),
+  prodCurry (prodUncurry f) = f := by
+  intro X Y Z f
+  rfl
+
+-- Prelude.lean には相当するものがなさそうなので自前で定義
+def nthError {X : Type} (l : List X) (n : Nat) : Option X :=
+  match l with
+  | [] => .none
+  | a :: l' =>
+    if n = 0 then .some a else nthError l' n.pred
+
+theorem lengthNNone : ∀
+  X (n : Nat) (l : List X),
+  length l = n → nthError (X := X) l n = .none := by
+  intro X n l h
+  rw [<- h]
+  clear n h
+  induction l
+  case nil => rfl
+  case cons h t t_ih =>
+    simp [nthError, length, t_ih]
+  done
+
+theorem lengthNNone2 : ∀
+  X (n : Nat) (l : List X),
+  length l = n → nthError (X := X) l n = .none := by
+  intro X n l h
+  induction l generalizing n
+  case nil => rfl
+  case cons x xs xs_ih =>
+    rw [<- h]
+    simp [nthError]
+    simp [length]
+    simp [xs_ih]
+  done
+
+namespace Church
+
+def cnat := ∀ X : Type, (X → X) → X → X
+
+def one : cnat :=
+  fun (X : Type) (f : X → X) (x : X) => f x
+
+def two : cnat :=
+  fun (X : Type) (f : X → X) (x : X) => f (f x)
+
+def zero : cnat :=
+  fun (X : Type) (_f : X → X) (x : X) => x
+
+def three : cnat := @doit3times
+
+def succ (n : cnat) : cnat :=
+  fun (X : Type) (f : X → X) (x : X) => f (n X f x)
+
+example : succ zero = one := rfl
+example : succ one = two := rfl
+example : succ two = three := rfl
+
+def plus (n m : cnat) : cnat :=
+  fun (X : Type) (f : X → X) (x : X) => m X f (n X f x)
+
+example : plus zero one = one := rfl
+example : plus two three = plus three two := rfl
+example : plus (plus two two) three = plus one (plus three three) := rfl
+
+def mult (n m : cnat) : cnat :=
+  fun (X : Type) (f : X → X) (x : X) =>
+    sorry -- また次回！
+
+#eval mult one one Nat .succ .zero
+
+end Church
