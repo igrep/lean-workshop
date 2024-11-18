@@ -564,7 +564,8 @@ example : succ one = two := rfl
 example : succ two = three := rfl
 
 def plus (n m : cnat) : cnat :=
-  fun (X : Type) (f : X → X) (x : X) => m X f (n X f x)
+  fun (X : Type) (f : X → X) (x : X) =>
+    m X f (n X f x)
 
 example : plus zero one = one := rfl
 example : plus two three = plus three two := rfl
@@ -572,8 +573,34 @@ example : plus (plus two two) three = plus one (plus three three) := rfl
 
 def mult (n m : cnat) : cnat :=
   fun (X : Type) (f : X → X) (x : X) =>
-    sorry -- また次回！
+    -- n を m 回足す
+    m X (n X f) x
 
-#eval mult one one Nat .succ .zero
+#guard mult zero zero Nat .succ .zero = 0
+#guard mult one zero Nat .succ .zero = 0
+#guard mult zero one Nat .succ .zero = 0
+#guard mult one one Nat .succ .zero = 1
+#guard mult two two Nat .succ .zero = 4
+#guard mult one two Nat .succ .zero = 2
+#guard mult two one Nat .succ .zero = 2
+#guard mult three one Nat .succ .zero = 3
+#guard mult one three Nat .succ .zero = 3
+#guard mult two three Nat .succ .zero = 6
+#guard mult three two Nat .succ .zero = 6
+
+def exp (n m : cnat) : cnat :=
+  fun (X: Type) => m (X → X) (n X)
+
+#guard exp zero zero Nat .succ .zero = 1
+#guard exp one zero Nat .succ .zero = 1
+#guard exp zero one Nat .succ .zero = 0
+#guard exp one one Nat .succ .zero = 1
+#guard exp two two Nat .succ .zero = 4
+#guard exp one two Nat .succ .zero = 1
+#guard exp two one Nat .succ .zero = 2
+#guard exp three one Nat .succ .zero = 3
+#guard exp one three Nat .succ .zero = 1
+#guard exp two three Nat .succ .zero = 8
+#guard exp three two Nat .succ .zero = 9
 
 end Church
