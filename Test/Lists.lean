@@ -284,20 +284,20 @@ example : ∀ (n : Nat) (s: Bag),
     -- decide: PropじゃなくてBoolを返さないといけないので変換する関数
     rw [Bag.removeAll, NatList.filter]
     split -- if式を分割する
-    case inl =>
+    case isTrue =>
       rw [Bag.count, NatList.filter]
       split
-      case inl =>
+      case isTrue =>
         -- simp_all だけでもよい！simp_allすごい！
         rename_i h1 h2
         simp at h1 h2
         contradiction
         done
-      case inr =>
+      case isFalse =>
         rw [Bag.removeAll, Bag.count] at t_ih
         exact t_ih
         done
-    case inr =>
+    case isFalse =>
       rw [Bag.removeAll] at t_ih
       exact t_ih
       done
@@ -579,10 +579,10 @@ theorem count0equalsSumNil : ∀ (n : Nat) (b1 b2 : Bag),
       intro b1'
       simp [Bag.count, NatList.filter]
       split
-      case inl h =>
+      case isTrue h =>
         rfl
         done
-      case inr =>
+      case isFalse =>
         rfl
         done
     simp [

@@ -544,7 +544,7 @@ def plus_may_not_terminate2 (n m : Nat) : Nat :=
 -- これはできる！
 example : plus_may_not_terminate2 1 1 = 2 := by native_decide
 -- これもできる！無限ループする可能性もあるから注意！
-#eval plus_may_not_terminate2 1 1
+#eval! plus_may_not_terminate2 1 1
 
 def plus' (m : Nat) : (Nat) → Nat
     | .zero => m

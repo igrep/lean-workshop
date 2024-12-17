@@ -489,8 +489,7 @@ theorem ofNat_double_nonzero (n : Nat) (h : n ≠ 0):
   induction n
   case zero =>
     simp only [Bin.ofNat]
-    apply h
-    rfl
+    nomatch h
   case succ n' n_ih =>
     simp [Bin.ofNat, Nat.succ_add]
     rw [show n' + n' = n' * 2 from by simp_arith]
@@ -514,7 +513,7 @@ theorem toNatBin_isZero
   case B1 b' _b_ih =>
     exfalso
     simp only [Bin.isZero] at h
-    done
+    contradiction
   case B0 b' b_ih =>
     simp only [Bin.isZero] at h
     simp only [Bin.toNat]
@@ -529,7 +528,7 @@ theorem toNatBin_isntZero
   case Z =>
     exfalso
     simp only [Bin.isZero] at h
-    done
+    contradiction
   case B1 _b' _b_ih =>
     simp [Bin.toNat]
   case B0 b' b_ih =>
