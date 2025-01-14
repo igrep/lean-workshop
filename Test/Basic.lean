@@ -285,7 +285,7 @@ def leb (n m : nat) : Bool :=
       | O => false
       | S m' => leb n' m'
 
-infixl:30 " =? " => eqb
+local infixl:30 " =? " => eqb
 infixl:30 " <=? " => leb
 
 def ltb (n m : nat) : Bool :=

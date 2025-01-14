@@ -289,5 +289,180 @@ theorem double_injective : ∀ n m,
     case succ m' =>
       congr
       apply ih_n
+      simp only [double] at eq -- なくても良いがあると分かりやすい
       injection eq with goal
       injection goal
+
+theorem eqb_true : ∀ n m,
+  n =? m = true → n = m := by
+  intro n
+  induction n
+  case zero =>
+    intro m h
+    induction m
+    case zero => rfl
+    case succ m' m_ih =>
+      nomatch h
+  case succ n' n_ih =>
+    intro m h
+    cases m
+    case zero => nomatch h
+    case succ m' =>
+      congr
+      apply n_ih
+      simp [eqb] at h
+      exact h
+  done
+
+theorem plus_n_n_injective : ∀ (n m : Nat),
+  n + n = m + m →
+  n = m := by
+  intro n
+  induction n
+  case zero =>
+    intro m eq
+    induction m
+    case zero => rfl
+    case succ m' m_ih =>
+      nomatch eq
+  case succ n' n_ih =>
+    intro m eq
+    cases m
+    case zero =>
+      nomatch eq
+    case succ m' =>
+      -- (n + m) + 1 = n + (m + 1)
+      -- S (n + m) = n + (S m)
+      rw [← Nat.add_assoc] at eq
+      rw [← Nat.add_assoc] at eq
+      simp [Nat.add] at eq
+      rw [Nat.succ_add] at eq
+      rw [Nat.succ_add] at eq
+      injection eq with eq'
+      have := n_ih _ eq'
+      congr
+      done
+  done
+
+theorem double_injective_take2_FAILED : ∀ n m,
+  double n = double m →
+  n = m := by
+  intro n m
+  induction m
+  case zero =>
+    intro eq
+    cases n
+    case zero => rfl
+    case succ n' =>
+      nomatch eq
+  case succ m' m_ih =>
+    intro eq
+    cases n
+    case zero =>
+      nomatch eq
+    case succ n' =>
+      congr
+      sorry
+
+theorem double_injective_take2 : ∀ n m,
+  double n = double m →
+  n = m := by
+  intro n m
+  revert n
+  induction m
+  case zero =>
+    intro n eq
+    cases n
+    case zero => rfl
+    case succ n' =>
+      nomatch eq
+  case succ m' m_ih =>
+    intro n eq
+    cases n
+    case zero =>
+      nomatch eq
+    case succ n' =>
+      congr
+      apply m_ih
+      injection eq with goal
+      injection goal
+
+theorem nth_error_after_last : ∀
+  (n : Nat) (X : Type) (l : List X),
+  l.length = n →
+  l.get? n = none := by
+  intro n _ l
+  -- revert n
+  induction l generalizing n
+  case nil =>
+    intro eq
+    cases n
+    case zero => rfl
+    case succ => rfl
+  case cons h t t_ih =>
+    intro eq
+    cases n
+    case zero =>
+      nomatch eq
+    case succ n' =>
+      simp at eq
+      apply t_ih
+      exact eq
+  done
+
+theorem nth_error_after_last2 : ∀
+  (n : Nat) (X : Type) (l : List X),
+  l.length = n →
+  l.get? n = none := by
+  intro n _ l eq
+  induction n generalizing l
+  case zero =>
+    induction l
+    case nil => rfl
+    case cons h t t_ih =>
+      nomatch eq
+  case succ n' n_ih =>
+    induction l
+    case nil =>
+      nomatch eq
+    case cons h t t_ih =>
+      apply n_ih
+      simp at eq
+      exact eq
+
+def square (n : Nat) := n * n
+
+theorem square_mult : ∀ n m,
+  square (n * m) = square n * square m := by
+  intro n m
+  unfold square
+  rw [← Nat.mul_assoc]
+  have h : n * m * n = n * n * m := by
+    rw [Nat.mul_comm, Nat.mul_assoc]
+  rw [h, Nat.mul_assoc]
+  done
+
+def bar (x : Nat) :=
+  match x with
+  | .zero => 5
+  | .succ _ => 5
+
+theorem silly_fact_2_FAILED : ∀ m,
+  bar m + 1 = bar (m + 1) + 1 := by
+  intro m
+  sorry
+
+theorem silly_fact_2 : ∀ m,
+  bar m + 1 = bar (m + 1) + 1 := by
+  intro m
+  cases m
+  case zero => rfl
+  case succ m' => rfl
+
+theorem silly_fact_2' : ∀ m,
+  bar m + 1 = bar (m + 1) + 1 := by
+  intro m
+  unfold bar
+  cases m
+  case zero => rfl
+  case succ m' => rfl

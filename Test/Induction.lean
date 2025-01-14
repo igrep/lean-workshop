@@ -61,7 +61,7 @@ theorem myAdd_n_O : ∀ n : Nat,
 
 -- やはりかけ算の場合も右ゼロ元の方が
 -- Leanでは簡単らしいので、左辺と右辺を入れ替える
--- Coq版とは恐らくアプローチが違うので注意
+-- Coq版とは恐Test/Induction.leanらくアプローチが違うので注意
 theorem mult_0_r : forall n:Nat,
   0 * n = 0 := by
   intro n
