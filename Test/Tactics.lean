@@ -466,3 +466,194 @@ theorem silly_fact_2' : ∀ m,
   cases m
   case zero => rfl
   case succ m' => rfl
+
+def  sillyfun (n : Nat) : Bool :=
+  if n =? 3 then false
+  else if n =? 5 then false
+  else false
+
+theorem sillyfun_false : ∀ (n : Nat),
+  sillyfun n = false := by
+  intro n
+  unfold sillyfun
+  cases e1: n =? 3
+  case true => rfl
+  case false =>
+    cases n =? 5
+    case true => rfl
+    case false => rfl
+
+theorem sillyfun_false2 : ∀ (n : Nat),
+  sillyfun n = false := by
+  intro n
+  unfold sillyfun
+  split -- if や match を使った分岐を自動で subgoal に
+  case isTrue => rfl
+  case isFalse =>
+    split
+    case isTrue => rfl
+    case isFalse => rfl
+
+-- Lean 組み込みの tuple 向けに作り直す
+def combine
+  {X Y : Type}
+  (lx : List X)
+  (ly : List Y)
+  : List (X × Y) :=
+  match lx, ly with
+  | [], _ => []
+  | _, [] => []
+  | x :: tx, y :: ty => (x, y) :: combine tx ty
+
+#check combine
+#eval combine [1, 2] [false, false, true, true]
+
+def split
+  {X Y : Type}
+  (l : List (X × Y))
+  : (List X) × (List Y) :=
+  match l with
+  | [] => ([], [])
+  | (x, y) :: l' =>
+    match split l' with
+    | (xs, ys) => (x :: xs, y :: ys)
+
+#check split
+#check split [(1, false), (2, false)]
+#check ([1, 2], [false, false])
+#guard split [(1, false), (2, false)] = ([1, 2], [false, false])
+
+theorem combine_split : ∀ X Y (l : List (X × Y)) l1 l2,
+  split l = (l1, l2) →
+  combine l1 l2 = l := by
+  intro X Y l l1 l2 h
+  induction l generalizing l1 l2
+  case nil =>
+    -- simp する際に unfold する関数を指定できる
+    simp [split] at h
+    rw [h.left, h.right]
+    rfl
+  case cons hd tl tl_ih =>
+    simp [split] at h
+    rw [
+      ← h.left,
+      ← h.right,
+      combine,
+      ]
+    congr
+    apply tl_ih
+    rfl
+
+def sillyfun1 (n : Nat) : Bool :=
+  if n =? 3 then true
+  else if n =? 5 then true
+  else false
+
+theorem sillyfun1_odd_FAILED : ∀ (n : Nat),
+  sillyfun1 n = true →
+  oddb n = true := by
+  intro n
+  unfold sillyfun1
+  cases n =? 3
+  case false =>
+    simp
+    cases n =? 5
+    case false =>
+      simp
+    case true =>
+      simp
+      sorry
+  case true =>
+    simp
+    sorry
+
+theorem sillyfun1_odd : ∀ (n : Nat),
+  sillyfun1 n = true →
+  oddb n = true := by
+  intro n eq
+  unfold sillyfun1 at eq
+  cases heqe3: n =? 3
+  case true =>
+    replace heqe3 := eqb_true _ _ heqe3
+    rw [heqe3]
+    rfl
+  case false =>
+    cases heqe5: n =? 5
+    case true =>
+      replace heqe5 := eqb_true _ _ heqe5
+      rw [heqe5]
+      rfl
+    case false =>
+      rw [heqe3, heqe5] at eq
+      contradiction
+
+
+theorem bool_fn_applied_thrice :
+  ∀ (f : Bool → Bool) (b : Bool),
+  f (f (f b)) = f b := by
+  intro f b
+  cases b
+  case true =>
+    cases f_true: f true
+    case true =>
+      rw [f_true, f_true]
+      done
+    case false =>
+      cases f_false: f false
+      case true =>
+        rw [f_true]
+        done
+      case false =>
+        rw [f_false]
+        done
+      done
+  case false =>
+    cases f_false: f false
+    case true =>
+      cases f_true: f true
+      case true =>
+        rw [f_true]
+        done
+      case false =>
+        rw [f_false]
+        done
+      done
+    case false =>
+      rw [f_false, f_false]
+      done
+  done
+
+-- 別解
+example (f : Bool → Bool) (b : Bool) : f (f (f b)) = f b := by
+  cases f_true : f true <;> cases f_false : f false <;> cases b <;> simp [f_true, f_false]
+
+theorem eqb_sym : ∀ (n m : Nat),
+  (n =? m) = (m =? n) := by
+  intro n m
+  induction n generalizing m
+  case zero =>
+    cases m
+    case zero => rfl
+    case succ => rfl
+  case succ n n_ih =>
+    cases m
+    case zero => rfl
+    case succ =>
+      simp [eqb]
+      apply n_ih
+
+theorem eqb_trans : ∀ n m p,
+  n =? m = true →
+  m =? p = true →
+  n =? p = true := by
+  intro n m p b1 b2
+  have h1 := eqb_true _ _ b1
+  have h2 := eqb_true _ _ b2
+  rw [h1, h2, eqb_refl p]
+  done
+
+theorem split_combine : ∀ X Y (l : List (X × Y)) l1 l2,
+  l1.length = l2.length →
+  combine l1 l2 = l →
+  split l = (l1, l2) := by
+  sorry -- TODO: 次回やる！
