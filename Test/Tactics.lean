@@ -656,4 +656,113 @@ theorem split_combine : ∀ X Y (l : List (X × Y)) l1 l2,
   l1.length = l2.length →
   combine l1 l2 = l →
   split l = (l1, l2) := by
-  sorry -- TODO: 次回やる！
+  intro X Y l l1 l2 hypo1 hypo2
+  induction l generalizing l1 l2
+  case nil =>
+    cases l1
+    case nil =>
+      cases l2
+      case nil =>
+        rfl
+      case cons h2 t2 =>
+        nomatch hypo1
+    case cons h1 t1 =>
+      cases l2
+      case nil =>
+        nomatch hypo1
+      case cons h2 t2 =>
+        nomatch hypo2
+  case cons h t ih =>
+    cases l1
+    case nil =>
+      cases l2
+      case nil =>
+        nomatch hypo2
+      case cons h2 t2 =>
+        nomatch hypo1
+    case cons h1 t1 =>
+      cases l2
+      case nil =>
+        nomatch hypo2
+      case cons h2 t2 =>
+        cases h
+        case mk x y =>
+          dsimp [split]
+          simp
+          simp [combine] at hypo2
+          rcases hypo2 with ⟨⟨h1x, h2y⟩, c⟩
+          rw [h1x, h2y]
+          simp
+          simp at hypo1
+          specialize ih t1 t2 hypo1 c
+          rw [ih]
+          apply And.intro
+          case left => rfl
+          case right => rfl
+          done
+
+theorem filter_exercise
+  : ∀ (X : Type) (pred : X → Bool)
+      (x : X) (l lf : List X),
+  filter pred l = x :: lf → pred x = true := by
+  intro X pred x l lf hypo
+  induction l generalizing x lf
+  case nil =>
+    nomatch hypo
+  case cons h t ih =>
+    simp [filter] at hypo
+    split at hypo
+    case isTrue ht =>
+      injection hypo with head_eq tail_eq
+      rw [head_eq] at ht
+      rw [ht]
+      done
+    case isFalse hf =>
+      specialize ih _ _ hypo
+      assumption
+
+def forallb {X : Type} (pred : X → Bool) (l : List X) : Bool :=
+  match l with
+  | [] => true
+  | h :: t =>
+    if pred h then forallb pred t else false
+
+#guard forallb oddb [1, 3, 5, 7, 9]
+#guard forallb not [false, false]
+#guard forallb evenb [0, 2, 4, 5] = false
+#guard forallb (eqb 5) []
+
+def existsb {X : Type} (pred : X → Bool) (l : List X) : Bool :=
+  match l with
+  | [] => false
+  | h :: t =>
+    if pred h then true else existsb pred t
+
+#guard existsb (eqb 5) [0, 2, 3, 6] = false
+#guard existsb (and true) [true, true, false]
+#guard existsb oddb [1, 0, 0, 0, 0, 3]
+#guard existsb evenb [] = false
+
+def existsb' {X : Type} (pred : X → Bool) (l : List X) : Bool :=
+  not (forallb (not ∘ pred) l)
+
+#guard existsb' (eqb 5) [0, 2, 3, 6] = false
+#guard existsb' (and true) [true, true, false]
+#guard existsb' oddb [1, 0, 0, 0, 0, 3]
+#guard existsb' evenb [] = false
+
+-- こう書くと intro が要らない！
+theorem existsb_existsb' (X : Type) (pred : X → Bool) (l : List X):
+  existsb pred l = existsb' pred l := by
+  induction l
+  case nil => rfl
+  case cons h t ih =>
+    rw [existsb, existsb', forallb]
+    simp [Function.comp]
+    cases hypo : pred h
+    case false =>
+      simp
+      simp [existsb'] at ih
+      rw [ih]
+    case true =>
+      rfl
