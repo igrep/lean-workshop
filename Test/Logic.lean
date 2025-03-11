@@ -354,3 +354,193 @@ theorem apply_iff_example2:
   apply h
   apply hiff.mpr
   apply hq
+
+theorem iff_refl : ∀ P : Prop,
+  P ↔ P := by
+  intro p
+  constructor
+  case mp =>
+    intro h
+    apply h
+  case mpr =>
+    -- 別解1: exact (fun x => x)
+    -- 別解2: exact id
+    intro h
+    apply h
+
+theorem iff_refl2 : ∀ P : Prop,
+  P ↔ P := by
+  intro p
+  rfl
+
+theorem iff_trans : ∀ P Q R : Prop,
+  (P ↔ Q) → (Q ↔ R) → (P ↔ R) := by
+  intro P Q R ⟨hpq, hqp⟩ ⟨hqr, hrq⟩
+  constructor
+  case mp =>
+    intro p
+    apply hqr
+    apply hpq
+    exact p
+    -- exact (fun x => hqr (hpq x))
+    -- exact (hqr ∘ hpq)
+  case mpr =>
+    intro r
+    apply hqp
+    apply hrq
+    exact r
+
+theorem iff_trans2 : ∀ P Q R : Prop,
+  (P ↔ Q) → (Q ↔ R) → (P ↔ R) := by
+  intro P Q R hpq hqr
+  rw [hpq, hqr]
+  done
+
+theorem or_distributes_over_and : ∀ P Q R : Prop,
+  P ∨ (Q ∧ R) ↔ (P ∨ Q) ∧ (P ∨ R) := by
+  intro P Q R
+  constructor
+  case mp =>
+    rintro (p | ⟨q, r⟩)
+    case inl =>
+      constructor
+      case left =>
+        left
+        exact p
+      case right =>
+        left
+        exact p
+    case inr.intro =>
+      constructor
+      case left =>
+        right
+        exact q
+      case right =>
+        right
+        exact r
+  case mpr =>
+    rintro ⟨(p | q), pr⟩
+    case intro.inl =>
+      left
+      exact p
+    case intro.inr =>
+      cases pr
+      case inl p =>
+        left
+        exact p
+      case inr r =>
+        right
+        constructor
+        case left =>
+          exact q
+        case right =>
+          exact r
+
+
+theorem mul_eq_0 : ∀ n m, n * m = 0 ↔ n = 0 ∨ m = 0 := by
+  intro n m
+  constructor
+  case mp =>
+    apply mult_is_O
+  case mpr =>
+    apply factor_is_O
+
+theorem my_or_assoc :
+  ∀ P Q R : Prop, P ∨ (Q ∨ R) ↔ (P ∨ Q) ∨ R := by
+  intro P Q R
+  constructor
+  case mp =>
+    rintro (p | (q | r))
+    case inl =>
+      left
+      left
+      exact p
+    case inr.inl =>
+      left
+      right
+      exact q
+    case inr.inr =>
+      right
+      exact r
+  case mpr =>
+    rintro ((p | q) | r)
+    case inl.inl =>
+      left
+      exact p
+    case inl.inr =>
+      right
+      left
+      exact q
+    case inr =>
+      right
+      right
+      exact r
+
+theorem mul_eq_0_ternary :
+  ∀ n m p, n * m * p = 0 ↔ n = 0 ∨ m = 0 ∨ p = 0 := by
+  intro n m p
+  rw [mul_eq_0, mul_eq_0, my_or_assoc]
+  done
+
+def Even x := ∃ n : Nat, x = n * 2
+#check Even
+#print Exists
+
+theorem four_is_Even : Even 4 := by
+  unfold Even
+  exists 2
+  -- 別解:
+  -- apply Exists.intro 2
+  -- rfl
+
+theorem four_is_Even2 : Even 4 := by
+  constructor
+  case w => exact 2
+  case h => rfl
+
+theorem exists_example_2 : ∀ n,
+  (∃ m, n = m + 4) →
+  (∃ o, n = o + 2) := by
+  intro n ⟨m, _⟩
+  exists m + 2
+
+theorem dist_not_exists : ∀ (X : Type) (P : X → Prop),
+  (∀ x, P x) → ¬ (∃ x, ¬ P x) := by
+  intro X P h1 ⟨x, h2⟩
+  have h : P x := h1 x
+  contradiction
+
+theorem dist_exists_or : ∀ (X : Type) (P Q : X → Prop),
+  (∃ x, P x ∨ Q x) ↔ (∃ x, P x) ∨ (∃ x, Q x) := by
+  intro X P Q
+  constructor
+  case mp =>
+    rintro ⟨x, (hp | hq)⟩
+    case inl =>
+      left
+      exists x
+    case inr =>
+      right
+      exists x
+  case mpr =>
+    rintro (⟨x, hp⟩ | ⟨x, hq⟩)
+    case inl =>
+      exists x
+      left
+      exact hp
+    case inr =>
+      exists x
+      right
+      exact hq
+
+theorem leb_plus_exists
+  : ∀ (n m : Nat), n ≤ m → ∃ x, m = n + x := by
+  intro n m h
+  exists (m - n)
+  rw [Nat.add_sub_of_le h]
+  done
+
+theorem plus_exists_leb : ∀ (n m : Nat), (∃ x, m = n+x) → n ≤ m := by
+  intro n m ⟨x, h⟩
+  rw [h]
+  apply Nat.le_add_right
