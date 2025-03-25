@@ -1,3 +1,5 @@
+import Test.Basic
+
 #check (∀ n m : Nat, n + m = m + n)
 #check 2 = 2
 #check 3 = 2
@@ -544,3 +546,256 @@ theorem plus_exists_leb : ∀ (n m : Nat), (∃ x, m = n+x) → n ≤ m := by
   intro n m ⟨x, h⟩
   rw [h]
   apply Nat.le_add_right
+
+def In {A : Type} (x : A) (l : List A) : Prop :=
+  match l with
+  | [] => False
+  | x' :: l' => x' = x ∨ In x l'
+
+#print Or
+
+theorem In_example_1 : In 4 [1, 2, 3, 4, 5] := by
+  right
+  right
+  right
+  left
+  rfl
+
+theorem In_example_2 :
+  ∀ n, In n [2, 4] →
+  ∃ n', n = 2 * n' := by
+  rintro n (h | h | _)
+  case inl =>
+    exists 1
+    rw [← h]
+  case inr.inl =>
+    exists 2
+    rw [← h]
+  case inr.inr =>
+    contradiction
+
+theorem In_map : ∀
+  (A B : Type)
+  (f : A → B)
+  (l : List A)
+  (x : A),
+  In x l →
+  In (f x) (l.map f) := by
+  intro A B f l x
+  induction l
+  case nil =>
+    intro h
+    contradiction
+  case cons hd tl tl_h =>
+    rintro (h | h)
+    case inl =>
+      rw [h, List.map]
+      left
+      rfl
+    case inr =>
+      right
+      apply tl_h h
+
+#check @Exists Nat (fun x => x = 1)
+#check @Exists.intro Nat (fun x => x = 1) 1 rfl
+#print Exists
+
+theorem In_map_iff :
+  ∀ (A B : Type) (f : A → B) (l : List A) (y : B),
+  In y (l.map f) ↔ ∃ x, f x = y ∧ In x l := by
+  intro A B f l y
+  constructor
+  case mp =>
+    induction l
+    case nil =>
+      intro h
+      contradiction
+    case cons hd tl tl_h =>
+      intro h
+      rw [List.map] at h
+      cases h
+      case inl h' =>
+        exists hd
+        constructor
+        case left => exact h'
+        case right =>
+          left
+          rfl
+      case inr h' =>
+        specialize tl_h h'
+        rcases tl_h with ⟨x, hfx, hxl⟩
+        exists x
+        constructor
+        case left => exact hfx
+        case right =>
+          right
+          exact hxl
+  case mpr =>
+    rintro ⟨x, ⟨hfx, hxl⟩⟩
+    induction l
+    case nil =>
+      contradiction
+    case cons hd tl tl_h =>
+      rcases hxl with (hxl' | hxl')
+      case inl =>
+        rw [hxl']
+        rw [List.map]
+        left
+        exact hfx
+      case inr =>
+        rw [List.map]
+        right
+        apply tl_h hxl'
+
+theorem In_app_iff : ∀ A l l' (a : A),
+  In a (l ++ l') ↔ In a l ∨ In a l' := by
+  intro A l l' a
+  constructor
+  case mp =>
+    induction l
+    case nil =>
+      intro h
+      right
+      exact h
+      done
+    case cons hd tl tl_h =>
+      intro h
+      cases h
+      case inl h' =>
+        left
+        left
+        exact h'
+      case inr h' =>
+        cases tl_h h'
+        case inl h'' =>
+          left
+          right
+          exact h''
+        case inr h'' =>
+          right
+          exact h''
+  case mpr =>
+    rintro (h' | h')
+    case inl =>
+      induction l
+      case nil =>
+        contradiction
+      case cons hd tl tl_h =>
+        rcases h' with (h'' | h'')
+        case inl =>
+          left
+          exact h''
+        case inr =>
+          right
+          apply tl_h
+          exact h''
+    case inr =>
+      induction l
+      case nil =>
+        exact h'
+      case cons hd tl tl_h =>
+        right
+        apply tl_h
+
+def All {T : Type} (P : T → Prop) (l : List T) : Prop :=
+  match l with
+  | [] => True
+  | x' :: l' => P x' ∧ All P l'
+
+
+theorem All_In :
+  ∀ T (P : T → Prop) (l : List T),
+  (∀ x, In x l → P x) ↔ All P l := by
+  intro T P l
+  constructor
+  case mp =>
+    induction l
+    case nil =>
+      intro h
+      apply True.intro
+    case cons hd tl tl_h =>
+      intro h
+      constructor
+      case left =>
+        apply h
+        left
+        rfl
+      case right =>
+        apply tl_h
+        intro x h'
+        apply h
+        right
+        exact h'
+  case mpr =>
+    induction l
+    case nil =>
+      intro h x h'
+      contradiction
+    case cons hd tl tl_h =>
+      intro h x h'
+      rcases h with ⟨left, right⟩
+      cases h'
+      case inl h'' =>
+        rw [← h'']
+        exact left
+      case inr h'' =>
+        apply tl_h right x
+        exact h''
+  done
+
+def combine_odd_even (Podd Peven : Nat → Prop) : Nat → Prop :=
+  fun n => if evenb n then Peven n else Podd n
+
+theorem combine_odd_even_intro :
+  ∀ (Podd Peven : Nat → Prop) (n : Nat),
+    (oddb n = true → Podd n) →
+    (oddb n = false → Peven n) →
+    combine_odd_even Podd Peven n := by
+  intro Podd Peven n h1 h2
+  unfold combine_odd_even
+  cases h: evenb n
+  case true =>
+    apply h2
+    unfold oddb
+    rw [h]
+    rfl
+  case false =>
+    apply h1
+    unfold oddb
+    rw [h]
+    rfl
+
+theorem combine_odd_even_elim_odd :
+  ∀ (Podd Peven : Nat → Prop) (n : Nat),
+    combine_odd_even Podd Peven n →
+    oddb n = true →
+    Podd n := by
+  intro Podd Peven n h h'
+  unfold combine_odd_even at h
+  split at h
+  case isTrue h'' =>
+    unfold oddb at h'
+    rw [h''] at h'
+    contradiction
+  case isFalse h'' =>
+    exact h
+
+theorem combine_odd_even_elim_even :
+  ∀ (Podd Peven : Nat → Prop) (n : Nat),
+    combine_odd_even Podd Peven n →
+    oddb n = false →
+    Peven n := by
+  intro Podd Peven n h h'
+  unfold combine_odd_even at h
+  split at h
+  case isTrue h'' =>
+    exact h
+  case isFalse h'' =>
+    unfold oddb at h'
+    simp at h''
+    rw [h''] at h'
+    contradiction
+
+#check (Nat.add : Nat → Nat → Nat)
+#check (@List.reverse : ∀ X, List X → List X)
+#check (Nat.add_comm : ∀ n m : Nat, n + m = m + n)
