@@ -1,4 +1,6 @@
 import Test.Basic
+import Test.Induction
+import Test.Tactics
 
 #check (∀ n m : Nat, n + m = m + n)
 #check 2 = 2
@@ -799,3 +801,214 @@ theorem combine_odd_even_elim_even :
 #check (Nat.add : Nat → Nat → Nat)
 #check (@List.reverse : ∀ X, List X → List X)
 #check (Nat.add_comm : ∀ n m : Nat, n + m = m + n)
+open NatPlayground in
+  #check (
+    plus_id_example : ∀ n m : nat,
+    n = m → (n +!+ n) = (m +!+ m)
+    )
+
+theorem add_comm3 :
+  ∀ x y z : Nat, x + (y + z) = (z + y) + x := by
+  intro x y z
+  rw [Nat.add_comm]
+  rw [Nat.add_comm]
+  sorry
+
+theorem add_comm3_take2 :
+  ∀ x y z : Nat, x + (y + z) = (z + y) + x := by
+  intros x y z
+  rewrite [Nat.add_comm]
+  have h : y + z = z + y := by
+    apply Nat.add_comm
+  rw [h]
+  done
+
+theorem  add_comm3_take3 :
+  ∀ x y z : Nat, x + (y + z) = (z + y) + x := by
+  intro x y z
+  rw [Nat.add_comm]
+  rw [Nat.add_comm y z]
+  done
+
+theorem add_comm3_take4 :
+  ∀ x y z : Nat, x + (y + z) = (z + y) + x := by
+  intro x y z
+  rw [Nat.add_comm x (y + z)]
+  rw [Nat.add_comm y z]
+  done
+
+theorem in_not_nil :
+  ∀ A (x : A) (l : List A), In x l → l ≠ [] := by
+  intro A x l h
+  unfold In at h
+  intro hl
+  rw [hl] at h
+  apply h
+
+#check in_not_nil
+
+theorem in_not_nil_42 :
+  ∀ l : List Nat, In 42 l → l ≠ [] := by
+  intro l h
+  apply in_not_nil
+  sorry
+
+theorem in_not_nil_42_take2 :
+  ∀ l : List Nat, In 42 l → l ≠ [] := by
+  intro l h
+  apply in_not_nil (x := 42)
+  apply h
+  done
+
+theorem  in_not_nil_42_take3 :
+  ∀ l : List Nat, In 42 l → l ≠ [] := by
+  intro l h
+  have h := in_not_nil _ _ _ h
+  apply h
+  done
+
+theorem in_not_nil_42_take4 :
+  ∀ l : List Nat, In 42 l → l ≠ [] := by
+  intro l h
+  apply in_not_nil Nat 42
+  apply h
+  done
+
+theorem in_not_nil_42_take5 :
+  ∀ l : List Nat, In 42 l → l ≠ [] := by
+  intro l h
+  apply in_not_nil _ _ _ h
+  done
+
+theorem lemma_application_ex :
+  ∀ {n : Nat} {ns : List Nat},
+    In n (ns.map (fun m ↦ m * 0)) →
+    n = 0 := by
+  intro n ns h
+  -- cases (In_map_iff _ _ _ _ _).mp h
+  rcases (In_map_iff ..).mp h with ⟨m, h1, h2⟩
+  rw [Nat.mul_zero] at h1
+  rw [← h1]
+  done
+
+theorem even_42_bool : evenb 42 = true := by
+  rfl
+
+theorem even_42_bool' : evenb 42 := by
+  rfl
+
+#check even_42_bool'
+
+theorem even_42_prop : Even 42 := by
+  unfold Even
+  exists 21
+  done
+
+theorem even_double : ∀ k, evenb (2 * k) = true := by
+  intro k
+  induction k
+  case zero =>
+    rfl
+  case succ k' ih_k' =>
+    apply ih_k'
+    done
+
+theorem even_double_conv : ∀ n, ∃ k,
+  n = if evenb n then 2 * k else (2 * k) + 1 := by
+  intro n
+  induction n
+  case zero =>
+    exists 0
+  case succ n' ih_n' =>
+    rw [evenb_S]
+    cases h : evenb n'
+    case false =>
+      rw [h] at ih_n'
+      simp at ih_n' ⊢
+      rcases ih_n' with ⟨k, h'⟩
+      rw [h']
+      exists k + 1
+    case true =>
+      rw [h] at ih_n'
+      simp at ih_n' ⊢
+      rcases ih_n' with ⟨k, h'⟩
+      rw [h']
+      exists k
+
+theorem even_bool_prop : ∀ n,
+  evenb n = true ↔ Even n := by
+  intro n
+  constructor
+  case mp =>
+    intro h
+    cases even_double_conv n
+    case intro k hk =>
+      rw [hk, h]
+      exists k
+      simp
+      rw [Nat.mul_comm]
+      done
+  case mpr =>
+    intro ⟨k, hk⟩
+    rw [hk]
+    rw [Nat.mul_comm]
+    rw [even_double]
+    done
+
+theorem eqb_eq : ∀ n1 n2 : Nat,
+  (n1 =? n2) = true ↔ n1 = n2 := by
+  intro n1 n2
+  constructor
+  case mp =>
+    apply eqb_true
+  case mpr =>
+    intro h
+    rw [h]
+    rw [eqb_refl]
+
+def is_even_prime n :=
+  -- Lean 4の場合、NatがDecidableEqなため、
+  -- if 式の条件節に命題を書ける
+  if n = 2 then true
+  else false
+
+#check ite
+
+theorem even_1000'' : Even 1000 := by
+  -- Rocqのapplyは Iff を特別扱いしているらしい
+  apply (even_bool_prop _).mp
+  rfl
+  done
+
+instance (n : Nat) : Decidable (Even n) :=
+  if h : evenb n then
+    Decidable.isTrue ((even_bool_prop n).mp h)
+  else by
+    apply Decidable.isFalse
+    intro h'
+    have h'' := (even_bool_prop n).mpr h'
+    rw [h''] at h
+    contradiction
+
+set_option maxRecDepth 600
+theorem even_1000''' : Even 1000 := by
+  decide
+  done
+
+theorem not_even_1001 : evenb 1001 = false := by
+  rfl
+
+theorem not_even_1001' : ¬ Even 1001 := by
+  rw [← even_bool_prop]
+  unfold Not
+  intro h
+  contradiction
+  done
+
+theorem plus_eqb_example : ∀ n m p : Nat,
+  n =? m = true → n + p =? m + p = true := by
+  intro n m p h
+  rw [eqb_eq] at h
+  rw [h]
+  rw [eqb_eq]
+  done
