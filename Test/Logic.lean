@@ -852,6 +852,7 @@ theorem in_not_nil_42 :
   intro l h
   apply in_not_nil
   sorry
+  sorry
 
 theorem in_not_nil_42_take2 :
   ∀ l : List Nat, In 42 l → l ≠ [] := by
@@ -1011,4 +1012,215 @@ theorem plus_eqb_example : ∀ n m p : Nat,
   rw [eqb_eq] at h
   rw [h]
   rw [eqb_eq]
+  done
+
+theorem andb_true_iff : ∀ b1 b2 : Bool,
+  (b1 && b2) = true ↔ b1 = true ∧ b2 = true := by
+  intro b1 b2
+  constructor
+  case mp =>
+    intro h
+    cases b1
+    case true =>
+      cases b2
+      case true =>
+        constructor
+        case left => rfl
+        case right => rfl
+      case false =>
+        contradiction
+    case false =>
+      contradiction
+  case mpr =>
+    intro ⟨h1, h2⟩
+    rw [h1, h2]
+    rfl
+
+theorem orb_true_iff : ∀ b1 b2 : Bool,
+  (b1 || b2) = true ↔ b1 = true ∨ b2 = true := by
+  intro b1 b2
+  constructor
+  case mp =>
+    intro h
+    cases b1
+    case true =>
+      left
+      rfl
+    case false =>
+      cases b2
+      case true =>
+        right
+        rfl
+      case false =>
+        contradiction
+  case mpr =>
+    rintro (h | h)
+    case inl =>
+      rw [h]
+      rfl
+    case inr =>
+      rw [h]
+      apply Bool.or_true
+
+theorem eqb_neq : ∀ x y : Nat,
+  (x =? y) = false ↔ x ≠ y := by
+  intro x y
+  constructor
+  case mp =>
+    intro h
+    intro h'
+    rw [← eqb_eq] at h'
+    rw [h'] at h
+    contradiction
+  case mpr =>
+    intro h
+    unfold Ne Not at h
+    rw [← eqb_eq] at h
+    revert h
+    cases x =? y
+    case true =>
+      intro h'
+      contradiction
+    case false =>
+      intro h'
+      rfl
+
+-- 別解
+theorem eqb_neq2 : ∀ x y : Nat,
+  (x =? y) = false ↔ x ≠ y := by
+  intro x y
+  unfold Ne
+  rw [← eqb_eq]
+  cases x =? y <;> simp
+
+
+def eqb_list
+  {A : Type}
+  (eqb : A → A → Bool)
+  (l1 l2 : List A) : Bool :=
+  match l1, l2 with
+  | [], [] => true
+  | x1 :: xs1, x2 :: xs2 =>
+    eqb x1 x2 && eqb_list eqb xs1 xs2
+  | _, _ => false
+
+#check eqb_list.induct
+
+theorem eqb_list_true_iff :
+  ∀ A (eqb : A → A → Bool),
+    (∀ a1 a2, eqb a1 a2 = true ↔ a1 = a2) →
+    ∀ l1 l2, eqb_list eqb l1 l2 = true ↔ l1 = l2 := by
+  intro A eqb heqb l1 l2
+  constructor
+  case mp =>
+    induction l1 generalizing l2
+    case nil =>
+      intro h
+      cases l2
+      case nil =>
+        rfl
+      case cons x xs =>
+        contradiction
+    case cons x xs ih =>
+      intro h
+      cases l2
+      case nil =>
+        contradiction
+      case cons y ys =>
+        rw [eqb_list] at h
+        rw [andb_true_iff] at h
+        rcases h with ⟨h1, h2⟩
+        rw [heqb] at h1
+        rw [h1]
+        congr
+        apply ih
+        exact h2
+        done
+  case mpr =>
+    intro h
+    rw [h]
+    induction l2 generalizing l1
+    case nil =>
+      rfl
+    case cons x xs ih =>
+      rw [eqb_list]
+      specialize ih xs rfl
+      rw [ih]
+      rw [Bool.and_true]
+      rw [heqb]
+      done
+
+theorem forallb_true_iff : ∀ X test (l : List X),
+  forallb test l = true ↔ All (fun x => test x = true) l := by
+  intro X test l
+  induction l
+  case nil =>
+    constructor
+    case mp =>
+      intro h
+      apply True.intro
+    case mpr =>
+      intro h
+      rfl
+  case cons hd tl ih =>
+    unfold forallb All
+    cases test hd
+    case true =>
+      simp
+      exact ih
+    case false =>
+      simp only [Bool.false_eq_true]
+      simp only [↓reduceIte]
+      simp only [false_and]
+      simp only [Bool.false_eq_true]
+
+theorem function_equality_ex1 :
+  (fun x => 3 + x) = (fun x => (Nat.pred 4) + x) := rfl
+
+theorem function_equality_ex2 :
+  (fun x => x + 1) = (fun x => 1 + x) := by
+  funext x
+  rw [Nat.add_comm]
+  done
+
+#print axioms function_equality_ex2
+
+axiom functional_extensionality : ∀ {X Y: Type}
+                                    {f g : X → Y},
+  (∀ (x : X), f x = g x) → f = g
+
+theorem function_equality_ex2_2 :
+  (fun x => x + 1) = (fun x => 1 + x) := by
+  apply functional_extensionality
+  intro x
+  rw [Nat.add_comm]
+  done
+
+def rev_append {X} (l1 l2 : List X) : List X :=
+  match l1 with
+  | [] => l2
+  | x :: l1' => rev_append l1' (x :: l2)
+
+def tr_rev {X} (l : List X) : List X :=
+  rev_append l []
+
+theorem rev_append_eq : ∀ X (l1 l2 : List X),
+  rev_append l1 l2 = rev l1 ++ l2 := by
+  intro X l1 l2
+  induction l1 generalizing l2
+  case nil =>
+    rfl
+  case cons hd tl ih =>
+    rw [rev_append]
+    rw [ih]
+    rw [rev]
+    rw [List.append_assoc]
+    rfl
+
+theorem tr_rev_correct : ∀ X, @tr_rev X = @rev X := by
+  intro X
+  funext l
+  unfold tr_rev
+  rw [rev_append_eq]
+  rw [List.append_nil]
   done
