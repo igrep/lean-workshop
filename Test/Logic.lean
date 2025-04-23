@@ -1150,6 +1150,50 @@ theorem eqb_list_true_iff :
       rw [heqb]
       done
 
+-- eqb_list_true_iff の別解
+example :
+  ∀ A (eqb : A → A → Bool),
+    (∀ a1 a2, eqb a1 a2 = true ↔ a1 = a2) →
+    ∀ l1 l2, eqb_list eqb l1 l2 = true ↔ l1 = l2 := by
+  intro A eqb heqb
+  -- ↓代わりに`intro l1 l2; induction l1, l2 using eqb_list.induct eqb`としても良い
+  apply eqb_list.induct eqb
+  -- 両方空リストのパターン
+  case case1 => simp [eqb_list]
+  -- 互いの長さが異なるパターン
+  case case3 =>
+    intro l1 l2 not_nil not_cons
+    match l1, l2 with
+    | [], [] => simp at not_nil
+    | hd1 :: tl1, hd2 :: tl2 => specialize not_cons hd1 tl1 hd2 tl2; simp at not_cons
+    | [], _ :: _ | _ :: _, [] => simp [eqb_list]
+  -- 長さが同じで両方consのパターン
+  case case2 =>
+    intro hd1 tl1 hd2 tl2 ih
+    -- 本当はここで `simp [eqb_list, heqb, ih]` したら終わる
+    unfold eqb_list
+    rw [andb_true_iff, heqb, ih, List.cons_eq_cons]
+
+-- eqb_list_true_iff の別解2. `eqb_list.induct`を使うのと「unfoldしてsplitする」のはかなり似てる
+example :
+  ∀ A (eqb : A → A → Bool),
+    (∀ a1 a2, eqb a1 a2 = true ↔ a1 = a2) →
+    ∀ l1 l2, eqb_list eqb l1 l2 = true ↔ l1 = l2 := by
+  intro A eqb heqb l1 l2
+  unfold eqb_list
+  split
+  -- 両方空リストのパターン
+  case h_1 => simp
+  -- 互いの長さが異なるパターン
+  case h_3 _ _ not_nil not_cons =>
+    match l1, l2 with
+    | [], [] => simp at not_nil
+    | hd1 :: tl1, hd2 :: tl2 => specialize not_cons hd1 tl1 hd2 tl2; simp at not_cons
+    | [], _ :: _ | _ :: _, [] => simp
+  case h_2 _ _ hd1 tl1 hd2 tl2 =>
+    have ih := _example _ _ heqb tl1 tl2
+    rw [andb_true_iff, heqb, ih, List.cons_eq_cons]
+
 theorem forallb_true_iff : ∀ X test (l : List X),
   forallb test l = true ↔ All (fun x => test x = true) l := by
   intro X test l
