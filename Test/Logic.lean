@@ -981,14 +981,22 @@ theorem even_1000'' : Even 1000 := by
   rfl
   done
 
+theorem evenb_eq : evenb n = (n % 2 == 0) := by
+  induction n using evenb.induct
+  case case1 => rfl
+  case case2 => rfl
+  case case3 n ih =>
+    rw [evenb, ih, Nat.add_mod_right _ 2]
+
 instance (n : Nat) : Decidable (Even n) :=
-  if h : evenb n then
+  if h : n % 2 == 0 then
+    have h : evenb n := by rwa [evenb_eq]
     Decidable.isTrue ((even_bool_prop n).mp h)
   else by
     apply Decidable.isFalse
     intro h'
     have h'' := (even_bool_prop n).mpr h'
-    rw [h''] at h
+    rw [← evenb_eq, h''] at h
     contradiction
 
 set_option maxRecDepth 600
