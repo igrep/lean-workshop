@@ -999,7 +999,6 @@ instance (n : Nat) : Decidable (Even n) :=
     rw [← evenb_eq, h''] at h
     contradiction
 
-set_option maxRecDepth 600
 theorem even_1000''' : Even 1000 := by
   decide
   done
@@ -1275,4 +1274,80 @@ theorem tr_rev_correct : ∀ X, @tr_rev X = @rev X := by
   unfold tr_rev
   rw [rev_append_eq]
   rw [List.append_nil]
+  done
+
+def excluded_middle := ∀ P : Prop,
+  P ∨ ¬ P
+
+theorem restricted_excluded_middle : ∀ P b,
+  (P ↔ b = true) → P ∨ ¬ P := by
+  intro P b h
+  cases b
+  case true =>
+    left
+    apply h.mpr
+    rfl
+  case false =>
+    right
+    rw [h] -- もっとRocq版に近い書き方があるかも？
+    simp
+  done
+
+theorem restricted_excluded_middle_eq : ∀ (n m : Nat),
+  n = m ∨ n ≠ m := by
+  intro n m
+  apply restricted_excluded_middle (n = m) (n =? m)
+  apply Iff.symm
+  apply eqb_eq
+  done
+
+theorem excluded_middle_irrefutable: ∀ (P : Prop),
+  ¬ ¬ (P ∨ ¬ P) := by
+  intro P h
+  apply h
+  apply Or.inr
+  intro h'
+  apply h
+  apply Or.inl
+  exact h'
+
+theorem not_exists_dist :
+  excluded_middle →
+  ∀ (X : Type) (P : X → Prop),
+    ¬ (∃ x, ¬ P x) → (∀ x, P x) := by
+  intro em X P h1 x
+  have h : P x ∨ ¬ P x := by
+    apply em
+  cases h
+  case inl h =>
+    exact h
+  case inr h =>
+    exfalso
+    apply h1
+    exists x
+  done
+
+-- def excluded_middle := ∀ P : Prop, P ∨ ¬ P
+
+def peirce := ∀ P Q: Prop, ((P → Q) → P) → P
+
+def double_negation_elimination := ∀ P : Prop, ¬¬P → P
+
+def de_morgan_not_and_not := ∀ P Q : Prop, ¬(¬P ∧ ¬Q) → P ∨ Q
+
+def implies_to_or := ∀ P Q : Prop, (P → Q) → (¬P ∨ Q)
+
+def consequentia_mirabilis := ∀ P : Prop, (¬P → P) → P
+
+theorem excluded_middle_consequentia_mirabilis :
+  excluded_middle → consequentia_mirabilis := by
+  intro em P h
+  have pOrNotP : P ∨ ¬ P := by
+    apply em
+  cases pOrNotP
+  case inl p =>
+    exact p
+  case inr p =>
+    apply h
+    exact p
   done
