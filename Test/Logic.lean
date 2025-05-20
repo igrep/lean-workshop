@@ -981,14 +981,22 @@ theorem even_1000'' : Even 1000 := by
   rfl
   done
 
+theorem evenb_eq : evenb n = (n % 2 == 0) := by
+  induction n using evenb.induct
+  case case1 => rfl
+  case case2 => rfl
+  case case3 n ih =>
+    rw [evenb, ih, Nat.add_mod_right _ 2]
+
 instance (n : Nat) : Decidable (Even n) :=
-  if h : evenb n then
+  if h : n % 2 == 0 then
+    have h : evenb n := by rwa [evenb_eq]
     Decidable.isTrue ((even_bool_prop n).mp h)
   else by
     apply Decidable.isFalse
     intro h'
     have h'' := (even_bool_prop n).mpr h'
-    rw [h''] at h
+    rw [← evenb_eq, h''] at h
     contradiction
 
 set_option maxRecDepth 600
@@ -1149,6 +1157,50 @@ theorem eqb_list_true_iff :
       rw [Bool.and_true]
       rw [heqb]
       done
+
+-- eqb_list_true_iff の別解
+example :
+  ∀ A (eqb : A → A → Bool),
+    (∀ a1 a2, eqb a1 a2 = true ↔ a1 = a2) →
+    ∀ l1 l2, eqb_list eqb l1 l2 = true ↔ l1 = l2 := by
+  intro A eqb heqb
+  -- ↓代わりに`intro l1 l2; induction l1, l2 using eqb_list.induct eqb`としても良い
+  apply eqb_list.induct eqb
+  -- 両方空リストのパターン
+  case case1 => simp [eqb_list]
+  -- 互いの長さが異なるパターン
+  case case3 =>
+    intro l1 l2 not_nil not_cons
+    match l1, l2 with
+    | [], [] => simp at not_nil
+    | hd1 :: tl1, hd2 :: tl2 => specialize not_cons hd1 tl1 hd2 tl2; simp at not_cons
+    | [], _ :: _ | _ :: _, [] => simp [eqb_list]
+  -- 長さが同じで両方consのパターン
+  case case2 =>
+    intro hd1 tl1 hd2 tl2 ih
+    -- 本当はここで `simp [eqb_list, heqb, ih]` したら終わる
+    unfold eqb_list
+    rw [andb_true_iff, heqb, ih, List.cons_eq_cons]
+
+-- eqb_list_true_iff の別解2. `eqb_list.induct`を使うのと「unfoldしてsplitする」のはかなり似てる
+example :
+  ∀ A (eqb : A → A → Bool),
+    (∀ a1 a2, eqb a1 a2 = true ↔ a1 = a2) →
+    ∀ l1 l2, eqb_list eqb l1 l2 = true ↔ l1 = l2 := by
+  intro A eqb heqb l1 l2
+  unfold eqb_list
+  split
+  -- 両方空リストのパターン
+  case h_1 => simp
+  -- 互いの長さが異なるパターン
+  case h_3 _ _ not_nil not_cons =>
+    match l1, l2 with
+    | [], [] => simp at not_nil
+    | hd1 :: tl1, hd2 :: tl2 => specialize not_cons hd1 tl1 hd2 tl2; simp at not_cons
+    | [], _ :: _ | _ :: _, [] => simp
+  case h_2 _ _ hd1 tl1 hd2 tl2 =>
+    have ih := _example _ _ heqb tl1 tl2
+    rw [andb_true_iff, heqb, ih, List.cons_eq_cons]
 
 theorem forallb_true_iff : ∀ X test (l : List X),
   forallb test l = true ↔ All (fun x => test x = true) l := by
