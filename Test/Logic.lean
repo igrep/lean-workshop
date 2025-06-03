@@ -1329,15 +1329,15 @@ theorem not_exists_dist :
 
 -- def excluded_middle := ∀ P : Prop, P ∨ ¬ P
 
-def peirce := ∀ P Q: Prop, ((P → Q) → P) → P
+def consequentia_mirabilis := ∀ P : Prop, (¬P → P) → P
 
 def double_negation_elimination := ∀ P : Prop, ¬¬P → P
+
+def peirce := ∀ P Q: Prop, ((P → Q) → P) → P
 
 def de_morgan_not_and_not := ∀ P Q : Prop, ¬(¬P ∧ ¬Q) → P ∨ Q
 
 def implies_to_or := ∀ P Q : Prop, (P → Q) → (¬P ∨ Q)
-
-def consequentia_mirabilis := ∀ P : Prop, (¬P → P) → P
 
 theorem excluded_middle_consequentia_mirabilis :
   excluded_middle → consequentia_mirabilis := by
@@ -1351,3 +1351,71 @@ theorem excluded_middle_consequentia_mirabilis :
     apply h
     exact p
   done
+
+theorem consequentia_mirabilis_double_negation_elimination :
+  consequentia_mirabilis → double_negation_elimination := by
+  intro cm P nnp
+  have pcm := cm P
+  apply pcm
+  intro np
+  specialize nnp np
+  contradiction
+
+theorem double_negation_elimination_peirce :
+  double_negation_elimination → peirce := by
+  intro dne P Q h
+  unfold double_negation_elimination at dne
+  apply dne
+  intro np
+  apply np
+  apply h
+  intro p
+  contradiction
+  -- have npp := np p
+  -- exact npp.elim
+
+theorem peirce_de_morgan_not_and_not :
+  peirce → de_morgan_not_and_not := by
+  intro pe P Q h
+  unfold peirce at pe
+  apply pe _ False
+  intro h1
+  exfalso
+  apply h
+  constructor
+  · intro p
+    apply h1
+    left
+    exact p
+  · intro q
+    apply h1
+    right
+    exact q
+  done
+
+theorem de_morgan_not_and_not_implies_to_or :
+  de_morgan_not_and_not → implies_to_or := by
+  intro dm P Q h
+  unfold de_morgan_not_and_not at dm
+  apply dm
+  intro ⟨nnp, nq⟩
+  apply nq
+  apply h
+  have p_or_not_p : P ∨ ¬ P := by
+    apply dm
+    intro ⟨np, _⟩
+    contradiction
+  cases p_or_not_p
+  case a.inl p =>
+    exact p
+  case a.inr np =>
+    contradiction
+
+theorem implies_to_or_excluded_middle :
+  implies_to_or → excluded_middle := by
+  intro ito P
+  unfold implies_to_or at ito
+  rw [Or.comm]
+  apply ito
+  intro p
+  exact p
