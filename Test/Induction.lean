@@ -16,6 +16,18 @@ def myAdd (n m : Nat) :=
     | .zero => m
     | .succ n' => .succ (myAdd n' m)
 
+theorem myAdd_add : ∀ n m : Nat,
+  myAdd n m = n + m := by
+  intro n m
+  induction n
+  case zero =>
+    simp
+    rfl
+  case succ n' ih =>
+    simp [myAdd]
+    rw [ih]
+    simp_arith
+
 infixl:150 " +!+ " => myAdd
 
 example : myAdd 3 4 = 7 := by rfl
@@ -118,6 +130,18 @@ theorem double_myAdd : forall n,
     simp only [double, myAdd]
     rewrite [← myAdd_n_Sm, n_ih]
     rfl
+
+-- Use in IndProp.lean
+theorem double_mul : ∀ n : Nat,
+  double n = n * 2 := by
+  intro n
+  induction n
+  case zero => rfl
+  case succ n' n_ih =>
+    simp only [double, Nat.mul_succ]
+    rewrite [n_ih]
+    simp_arith
+
 
 theorem evenb_S : forall n : Nat,
   evenb (.succ n) = not (evenb n) := by

@@ -210,6 +210,11 @@ theorem ev_double : ∀ n, ev (double n) := by
     apply ih
   done
 
+theorem ev_n_plus_n : ∀ n, ev (n + n) := by
+  intro n
+  rw [← myAdd_add, ← double_myAdd]
+  apply ev_double
+
 theorem Perm3_ex1 : Perm3 [1, 2, 3] [2, 3, 1] := by
   apply Perm3.trans (l2 := [2, 1, 3])
   · apply Perm3.swap12
@@ -322,3 +327,81 @@ theorem ev_Even_firsttry : ∀ n, ev n → Even n := by
   · exists 0
   · exists 1
   · sorry
+
+theorem ev_Even : ∀ n,
+  ev n → Even n := by
+  unfold Even
+  intro n E
+  induction E
+  case zero =>
+    exists 0
+  case succ n' E' ih =>
+   cases ih
+   case intro k hk =>
+      exists (k + 1)
+      rw [hk, Nat.add_mul]
+  done
+
+theorem ev_Even_iff : ∀ n,
+  ev n ↔ Even n := by
+  intro n
+  constructor
+  case mp =>
+    apply ev_Even
+  case mpr =>
+    unfold Even
+    intro k
+    cases k
+    case intro k' hk =>
+      rw [hk]
+      rw [← double_mul]
+      apply ev_double
+
+
+-- inductive ev : Nat → Prop where
+--   | zero : ev 0
+--   | succ {n : Nat} (h : ev n) : ev (n + 2)
+
+theorem ev_sum : ∀ n m,
+  ev n → ev m → ev (n + m) := by
+  intro n m en em
+  induction em
+  case zero =>
+    exact en
+  case succ m' em' =>
+    apply ev.succ
+    exact em'
+  -- induction en
+  -- case zero =>
+  --   simp
+  --   exact em
+  -- case succ n' en' e_n'_m =>
+  --   apply ev.succ
+
+theorem ev_ev__ev : ∀ n m,
+  ev (n + m) → ev n → ev m := by
+  intro n m enm en
+  induction en
+  case zero =>
+    simp at enm
+    exact enm
+  case succ n' en' =>
+    rw [
+      Nat.add_assoc,
+      Nat.add_comm 2 m,
+      ← Nat.add_assoc,
+      ] at enm
+    cases enm
+    case succ h =>
+      exact en' h
+
+theorem ev_plus_plus : ∀ n m p,
+  ev (n + m) → ev (n + p) → ev (m + p) := by
+  intro n m p enm enp
+  have enmnp := ev_sum _ _ enm enp
+  have enn : ev (n + n) := by
+    apply ev_n_plus_n
+  have nnmp : n + m + (n + p) = n + n + (m + p) := by
+    simp_arith
+  rw [nnmp] at enmnp
+  exact ev_ev__ev _ _ enmnp enn
