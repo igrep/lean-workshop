@@ -405,3 +405,241 @@ theorem ev_plus_plus : ∀ n m p,
     simp_arith
   rw [nnmp] at enmnp
   exact ev_ev__ev _ _ enmnp enn
+
+inductive ev' : Nat → Prop where
+  | ev'_0 : ev' 0
+  | ev'_2 : ev' 2
+  | ev'_sum n m (Hn : ev' n) (Hm : ev' m) : ev' (n + m)
+
+theorem ev'_ev : ∀ n, ev' n ↔ ev n := by
+  intro n
+  constructor
+  case mp =>
+    intro h
+    induction h
+    case ev'_0 =>
+      exact ev.zero
+    case ev'_2 =>
+      exact ev.succ ev.zero
+    case ev'_sum Hn Hm Hn_ih Hm_ih =>
+      apply ev_sum _ _ Hn_ih Hm_ih
+      done
+
+  case mpr =>
+    intro h
+    induction h
+    case zero =>
+      exact ev'.ev'_0
+    case succ n' Hn_ih =>
+      apply ev'.ev'_sum
+      case Hn =>
+        exact Hn_ih
+      case Hm =>
+        exact ev'.ev'_2
+      done
+
+theorem Perm3_symm : ∀ (X : Type) (l1 l2 : List X),
+  Perm3 l1 l2 → Perm3 l2 l1 := by
+  intro X l1 l2 E
+  induction E
+  case swap12 a b c =>
+    apply Perm3.swap12
+  case swap23 a b c =>
+    apply Perm3.swap23
+  case trans l1 l2 l3 E12 E23 IH12 IH23 =>
+    --                ^^^^^^^^^^^^^^^^^
+    --          引数の順番がRocqと違うので注意！
+    apply (Perm3.trans _ l2 _)
+    · apply IH23
+    · apply IH12
+
+theorem Perm3_In : ∀ (X : Type) (x : X) (l1 l2 : List X),
+    Perm3 l1 l2 → In x l1 → In x l2 := by
+  intro X x l1 l2 E h
+  induction E
+  case swap12 a b c =>
+    rcases h with (h_ax | h_bx | h_cx | h_)
+    · rw [h_ax]
+      simp [In]
+    · rw [h_bx]
+      simp [In]
+    · rw [h_cx]
+      simp [In]
+    · nomatch h_
+  case swap23 a b c =>
+    rcases h with (h_ax | h_bx | h_cx | h_)
+    · rw [h_ax]
+      simp [In]
+    · rw [h_bx]
+      simp [In]
+    · rw [h_cx]
+      simp [In]
+    · nomatch h_
+  case trans l1 l2 l3 E12 E23 IH12 IH23 =>
+    apply IH23
+    apply IH12
+    exact h
+
+-- all_goals・rotate_right を使った別解
+theorem Perm3_In2 : ∀ (X : Type) (x : X) (l1 l2 : List X),
+    Perm3 l1 l2 → In x l1 → In x l2 := by
+  intro X x l1 l2 E h
+  induction E
+  case trans l1 l2 l3 E12 E23 IH12 IH23 =>
+    apply IH23
+    apply IH12
+    exact h
+  all_goals
+    rcases h with (h_x | h_x | h_x | h_)
+    rotate_right
+    nomatch h_
+    all_goals
+      rw [h_x]
+      simp [In]
+
+theorem Perm3_NotIn : ∀ (X : Type) (x : X) (l1 l2 : List X),
+  Perm3 l1 l2 → ¬In x l1 → ¬In x l2 := by
+  intro X x l1 l2 E h h'
+  apply h
+  apply Perm3_In _ _ l2 l1
+  · apply Perm3_symm
+    exact E
+  · exact h'
+
+-- 別解
+theorem Perm3_NotIn' : ∀ (X : Type) (x : X) (l1 l2 : List X),
+  Perm3 l1 l2 → ¬In x l1 → ¬In x l2 := by
+  intro X x l1 l2 E h
+
+  have lemma12 : ∀ (x a b c : X), In x [a, b, c] ↔ In x [b, a, c] := by
+    intro x a b c
+    constructor
+    case mp =>
+      intro h'
+      rcases h' with (h_ax | h_bx | h_cx | h_)
+      · rw [h_ax]
+        simp [In]
+      · rw [h_bx]
+        simp [In]
+      · rw [h_cx]
+        simp [In]
+      · nomatch h_
+    case mpr =>
+      intro h'
+      rcases h' with (h_ax | h_bx | h_cx | h_)
+      · rw [h_ax]
+        simp [In]
+      · rw [h_bx]
+        simp [In]
+      · rw [h_cx]
+        simp [In]
+      · nomatch h_
+
+  have lemma23 : ∀ (x a b c : X), In x [a, b, c] ↔ In x [a, c, b] := by
+    intro x a b c
+    constructor
+    case mp =>
+      intro h'
+      rcases h' with (h_ax | h_bx | h_cx | h_)
+      · rw [h_ax]
+        simp [In]
+      · rw [h_bx]
+        simp [In]
+      · rw [h_cx]
+        simp [In]
+      · nomatch h_
+    case mpr =>
+      intro h'
+      rcases h' with (h_ax | h_bx | h_cx | h_)
+      · rw [h_ax]
+        simp [In]
+      · rw [h_bx]
+        simp [In]
+      · rw [h_cx]
+        simp [In]
+      · nomatch h_
+
+  induction E
+  case swap12 a b c =>
+    rw [lemma12]
+    exact h
+  case swap23 a b c =>
+    rw [lemma23]
+    exact h
+  case trans l1 l2 l3 E12 E23 IH12 IH23 =>
+    apply IH23
+    apply IH12
+    exact h
+    done
+
+theorem Perm3_example2 : ¬ Perm3 [1, 2, 3] [1, 2, 4] := by
+  intro h
+  -- theorem Perm3_In : ∀ (X : Type) (x : X) (l1 l2 : List X),
+  --     Perm3 l1 l2 → In x l1 → In x l2 := by
+  have h1 : In 3 [1, 2, 3] := by
+    simp [In]
+  have h2 : In 3 [1, 2, 4] :=
+    Perm3_In _ 3 [1, 2, 3] [1, 2, 4] h h1
+  simp [In] at h2
+
+-- 大変な別解（未解決））
+theorem Perm3_example2' : ¬ Perm3 [1, 2, 3] [1, 2, 4] := by
+  generalize h1 : [1, 2, 3] = l1
+  generalize h3 : [1, 2, 4] = l3
+  intro h
+  induction h
+  case swap12 a b c =>
+    simp at h1 h3
+    rcases h1 with ⟨_, _, h3c⟩
+    rcases h3 with ⟨_, _, h4c⟩
+    rw [← h3c] at h4c
+    nomatch h4c
+  case swap23 a b c =>
+    simp at h1 h3
+    rcases h1 with ⟨_, h2b, _⟩
+    rcases h3 with ⟨_, _, h4b⟩
+    rw [← h2b] at h4b
+    nomatch h4b
+  case trans l1 l2 l3 E12 E23 IH12 IH23 =>
+    specialize IH12 h1
+    have IH23' := fun h => IH23 h h3
+    sorry
+
+#print Nat.le
+/-   n
+  0 1 2 3 4
+0 o
+1 o o
+2 o o o
+3 o o o o
+4 o o o o o
+-/
+
+theorem test_le1 :
+  3 ≤ 3 := by
+  apply Nat.le.refl
+  done
+
+theorem test_le2 :
+  3 ≤ 6 := by
+  apply Nat.le.step
+  apply Nat.le.step
+  apply Nat.le.step
+  apply Nat.le.refl
+  done
+
+theorem test_le3 :
+  (2 ≤ 1) → 2 + 2 = 5 := by
+  intro h
+  cases h
+  case step h' =>
+    nomatch h'
+  done
+
+def lt (n m : Nat) := le n.succ m
+
+#print Nat.lt
+
+def ge (m n : Nat) : Prop := le n m
+
+-- Nat.ge はない
