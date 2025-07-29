@@ -639,7 +639,236 @@ theorem test_le3 :
 def lt (n m : Nat) := le n.succ m
 
 #print Nat.lt
+#print Nat.le
 
 def ge (m n : Nat) : Prop := le n m
 
 -- Nat.ge はない
+
+theorem le_trans : ∀ m n o : Nat,
+  m ≤ n → n ≤ o → m ≤ o := by
+  intro m n o hmn hno
+  induction hno
+  case refl =>
+    exact hmn
+  case step n' hno' ih =>
+    apply Nat.le.step
+    exact ih
+
+theorem O_le_n : ∀ n : Nat,
+  0 ≤ n := by
+  intro n
+  induction n
+  case zero =>
+    exact Nat.le.refl
+  case succ n' ih =>
+    exact Nat.le.step ih
+
+theorem n_le_m__Sn_le_Sm : ∀ n m : Nat,
+  n ≤ m → n + 1 ≤ m + 1 := by
+  intro n m h
+  induction h
+  case refl =>
+    exact Nat.le.refl
+  case step n' h' ih =>
+    exact Nat.le.step ih
+
+theorem Sn_le_Sm__n_le_m : ∀ n m : Nat,
+  n + 1 ≤ m + 1 → n ≤ m := by
+  intro n m h
+  induction m
+  case zero =>
+    cases h
+    case refl =>
+      exact Nat.le.refl
+    case step h' =>
+      nomatch h'
+  case succ m' ih =>
+    cases h
+    case refl =>
+      exact Nat.le.refl
+    case step h' =>
+      apply Nat.le.step
+      apply ih h'
+
+theorem le_plus_l : ∀ a b : Nat,
+  a ≤ a + b := by
+  intro a b
+  induction b
+  case zero =>
+    exact Nat.le.refl
+  case succ b' ih =>
+    apply Nat.le.step
+    exact ih
+
+theorem plus_le : ∀ n1 n2 m : Nat,
+  n1 + n2 ≤ m →
+  n1 ≤ m ∧ n2 ≤ m := by
+  intro n1 n2 m h
+  induction h
+  case refl =>
+    constructor
+    · apply le_plus_l
+    · rw [Nat.add_comm]
+      apply le_plus_l
+  case step n h ih =>
+    constructor
+    · apply Nat.le.step
+      apply ih.left
+    · apply Nat.le.step
+      exact ih.right
+  done
+
+theorem plus_le_cases : ∀ n m p q : Nat,
+  n + m ≤ p + q → n ≤ p ∨ m ≤ q := by
+  intro n m p q h
+  induction q generalizing n m p
+  case zero =>
+    simp at h
+    have h' := plus_le _ _ _ h
+    left
+    exact h'.left
+  case succ q' ih =>
+    cases m
+    case zero =>
+      right
+      apply O_le_n
+    case succ m' =>
+      have h' : n + m' ≤ p + q' := by
+        apply Sn_le_Sm__n_le_m
+        exact h
+      specialize ih _ _ _ h'
+      cases ih
+      case inl hl =>
+        left
+        exact hl
+      case inr hr =>
+        right
+        apply n_le_m__Sn_le_Sm
+        exact hr
+  done
+
+-- Lean的にはplus_le_compat_rの方が解きやすそうなので先に
+theorem plus_le_compat_r : ∀ n m p : Nat,
+  n ≤ m →
+  n + p ≤ m + p := by
+  intro n m p h
+  induction h
+  case refl =>
+    apply Nat.le.refl
+  case step n' h' ih =>
+    rw [Nat.succ_add]
+    apply Nat.le.step
+    apply ih
+
+theorem plus_le_compat_l : ∀ n m p : Nat,
+  n ≤ m → p + n ≤ p + m := by
+  intro n m p h
+  rw [Nat.add_comm p n, Nat.add_comm p m]
+  apply plus_le_compat_r
+  exact h
+
+theorem le_plus_trans : ∀ n m p : Nat,
+  n ≤ m →
+  n ≤ m + p := by
+  intro n m p h
+  induction p
+  case zero =>
+    exact h
+  case succ p' ih =>
+    apply Nat.le.step
+    exact ih
+
+theorem lt_ge_cases : ∀ n m : Nat,
+  n < m ∨ n ≥ m := by
+  intro n m
+  rw [ ← Nat.add_one_le_iff
+     , ge_iff_le
+     ]
+  induction m generalizing n
+  case zero =>
+    simp
+  case succ m' ih =>
+    cases n
+    case zero =>
+      left
+      apply n_le_m__Sn_le_Sm
+      apply O_le_n
+    case succ n' =>
+      specialize ih n'
+      cases ih
+      case inl h =>
+        left
+        apply n_le_m__Sn_le_Sm
+        exact h
+      case inr h =>
+        right
+        apply n_le_m__Sn_le_Sm
+        exact h
+
+theorem n_lt_m__n_le_m : ∀ n m : Nat,
+  n < m →
+  n ≤ m := by
+  intro n m h
+  rw [← Nat.add_one_le_iff] at h
+  induction h
+  case refl =>
+    apply Nat.le.step
+    apply Nat.le.refl
+  case step n' h' ih =>
+    apply Nat.le.step
+    apply ih
+
+theorem plus_lt : ∀ n1 n2 m : Nat,
+  n1 + n2 < m →
+  n1 < m ∧ n2 < m := by
+  simp only [← Nat.add_one_le_iff]
+  intro n1 n2 m h
+  have h1 := plus_le (n1 + 1) n2 m (by
+    rw [show n1 + n2 + 1 = n1 + 1 + n2 from by ac_rfl] at h
+    exact h)
+  have h2 := plus_le n1 (n2 + 1) m h
+  exact And.intro h1.left h2.right
+
+#check Nat.ble
+theorem leb_complete : ∀ n m : Nat,
+  n.ble m = true → n ≤ m := by
+  intro n m h
+  induction m generalizing n
+  case zero =>
+    cases n
+    case zero =>
+      apply Nat.le.refl
+    case succ n' =>
+      unfold Nat.ble at h
+      contradiction
+  case succ m' ih =>
+    cases n
+    case zero =>
+      apply O_le_n
+    case succ n' =>
+      unfold Nat.ble at h
+      specialize ih _ h
+      apply n_le_m__Sn_le_Sm
+      exact ih
+  done
+
+theorem leb_correct : ∀ n m : Nat,
+  n ≤ m → n.ble m = true := by
+  intro n m h
+  induction m generalizing n
+  case zero =>
+    cases n
+    case zero =>
+      rfl
+    case succ n' =>
+      contradiction
+  case succ m' ih =>
+    cases n
+    case zero =>
+      rfl
+    case succ n' =>
+      unfold Nat.ble
+      apply ih
+      apply Sn_le_Sm__n_le_m
+      exact h
