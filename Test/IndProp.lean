@@ -872,3 +872,188 @@ theorem leb_correct : ∀ n m : Nat,
       apply ih
       apply Sn_le_Sm__n_le_m
       exact h
+
+
+inductive R : Nat → Nat → Nat → Prop where
+  | c1 : R 0 0 0
+  | c2 m n o (H : R m n o ) : R m.succ n o.succ
+  | c3 m n o (H : R m n o ) : R m n.succ o.succ
+  | c4 m n o (H : R m.succ n.succ o.succ.succ) : R m n o
+  | c5 m n o (H : R m n o ) : R n m o
+
+example : R 1 1 2 := by
+  apply R.c3
+  apply R.c2
+  exact R.c1
+  done
+
+-- m + n = o になる、という関係なので、該当しない！
+example : R 2 2 6 := by
+  sorry
+  done
+
+inductive R_no_c5 : Nat → Nat → Nat → Prop where
+  | c1 : R_no_c5 0 0 0
+  | c2 m n o (H : R_no_c5 m n o ) : R_no_c5 m.succ n o.succ
+  | c3 m n o (H : R_no_c5 m n o ) : R_no_c5 m n.succ o.succ
+  | c4 m n o (H : R_no_c5 m.succ n.succ o.succ.succ) : R_no_c5 m n o
+
+example : R_no_c5 1 2 3 := by
+  apply R_no_c5.c3
+  apply R_no_c5.c3
+  apply R_no_c5.c2
+  exact R_no_c5.c1
+  done
+
+example : R_no_c5 2 1 3 := by
+  apply R_no_c5.c2
+  apply R_no_c5.c2
+  apply R_no_c5.c3
+  exact R_no_c5.c1
+  done
+
+def fR (m n : Nat) : Nat := m + n
+
+theorem R_o_0_o : ∀ o, R o 0 o := by
+  intro o
+  induction o
+  case zero =>
+    exact R.c1
+  case succ o' ih =>
+    apply R.c2
+    exact ih
+  done
+
+theorem R_0_o_o : ∀ o, R 0 o o := by
+  intro o
+  induction o
+  case zero =>
+    exact R.c1
+  case succ o' ih =>
+    apply R.c3
+    exact ih
+  done
+
+theorem R_equiv_fR : ∀ m n o, R m n o ↔ fR m n = o := by
+  intro m n o
+  constructor
+  case mp =>
+    intro h
+    induction h
+    case c1 =>
+      rfl
+    case c2 m' n' o' h' hfR =>
+      simp [fR]
+      simp [fR] at hfR
+      omega
+    case c3 m' n' o' h' hfR =>
+      simp [fR]
+      simp [fR] at hfR
+      omega
+    case c4 m' n' o' h' hfR =>
+      simp [fR]
+      simp [fR] at hfR
+      omega
+    case c5 m' n' o' h' hfR =>
+      simp [fR]
+      simp [fR] at hfR
+      rw [Nat.add_comm]
+      exact hfR
+  case mpr =>
+    intro h
+    unfold fR at h
+    induction o generalizing m n
+    case zero =>
+      cases m
+      case zero =>
+        cases n
+        case zero =>
+          exact R.c1
+        case succ n' =>
+          nomatch h
+      case succ m' =>
+        simp at h
+    case succ o' ih =>
+      cases m
+      case zero =>
+        rw [← h]
+        simp
+        apply R_0_o_o
+      case succ m' =>
+        apply R.c2
+        apply ih
+        omega
+
+
+inductive Subseq : List Nat → List Nat → Prop where
+  | nil : Subseq [] []
+  | cons (x : Nat) (l1 l2 : List Nat)
+      (h : Subseq l1 l2) : Subseq (x :: l1) (x :: l2)
+  | skip (x : Nat) (l1 l2 : List Nat)
+      (h : Subseq l1 l2) : Subseq l1 (x :: l2)
+
+theorem subseq_refl : ∀ l : List Nat,
+  Subseq l l := by
+  intro l
+  induction l
+  case nil =>
+    exact Subseq.nil
+  case cons x l ih =>
+    apply Subseq.cons
+    exact ih
+  done
+
+theorem subseq_nil_l : ∀ l : List Nat,
+  Subseq [] l := by
+  intro l
+  induction l
+  case nil =>
+    exact Subseq.nil
+  case cons x l ih =>
+    apply Subseq.skip
+    exact ih
+  done
+
+theorem subseq_app : ∀ l1 l2 l3 : List Nat,
+  Subseq l1 l2 → Subseq l1 (l2 ++ l3) := by
+  intro l1 l2 l3 h
+  induction h
+  case nil =>
+    apply subseq_nil_l
+  case cons x l1' l2' h' ih =>
+    apply Subseq.cons
+    apply ih
+  case skip x l1' l2' h' ih =>
+    apply Subseq.skip
+    apply ih
+  done
+
+theorem subseq_cons : ∀ (x : Nat) (l1 l2 : List Nat),
+  Subseq (x :: l1) l2 → Subseq l1 l2 := by
+  intro x l1 l2 h
+  induction l2 generalizing l1
+  case nil =>
+    nomatch h
+  case cons y l2' ih =>
+    apply Subseq.skip
+    cases h
+    case h.cons h' =>
+      exact h'
+    case h.skip h' =>
+      exact ih l1 h'
+
+
+-- 続きは次回
+theorem subseq_trans : ∀ l1 l2 l3 : List Nat,
+  Subseq l1 l2 → Subseq l2 l3 → Subseq l1 l3 := by
+  intro l1 l2 l3 h12 h23
+  induction h12
+  case nil =>
+    apply subseq_nil_l
+  case cons x l1' l2' h' ih =>
+    -- theorem subseq_cons : ∀ (x : Nat) (l1 l2 : List Nat),
+    --   Subseq (x :: l1) l2 → Subseq l1 l2 := by
+    sorry
+  case skip x l1' l2' h' ih =>
+    sorry
+  done
