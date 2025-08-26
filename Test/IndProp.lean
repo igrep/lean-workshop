@@ -1028,6 +1028,16 @@ theorem subseq_app : ∀ l1 l2 l3 : List Nat,
     apply ih
   done
 
+theorem subseq_app_right : ∀ l1 l2 l3 : List Nat,
+  Subseq l1 l3 → Subseq l1 (l2 ++ l3) := by
+  intro l1 l2 l3 h
+  induction l2
+  case nil =>
+    exact h
+  case cons x l2' ih =>
+    apply Subseq.skip
+    exact ih
+
 theorem subseq_cons : ∀ (x : Nat) (l1 l2 : List Nat),
   Subseq (x :: l1) l2 → Subseq l1 l2 := by
   intro x l1 l2 h
@@ -1042,18 +1052,165 @@ theorem subseq_cons : ∀ (x : Nat) (l1 l2 : List Nat),
     case h.skip h' =>
       exact ih l1 h'
 
+theorem subseq_split
+  : ∀ {x : Nat} {l1 l2 : List Nat},
+  Subseq (x :: l1) l2 →
+  ∃ (l2₁ l2₂ : List Nat),
+    (l2 = l2₁ ++ x :: l2₂) ∧ Subseq l1 l2₂ := by
+  intro x l1 l2 h
+  induction l2 generalizing l1
+  case nil =>
+    nomatch h
+  case cons y l2' ih =>
+    cases h
+    case cons h' =>
+      exists []
+      exists l2'
+    case skip h' =>
+      rcases ih h' with ⟨l2₁, l2₂, ⟨h_eq, h_sub⟩⟩
+      -- exact ⟨y :: l2₁, l2₂, ⟨by rw [h_eq]; rfl, h_sub⟩⟩
+      exists (y :: l2₁)
+      exists l2₂
+      constructor
+      case left =>
+        rw [h_eq]
+        rfl
+      case right =>
+        exact h_sub
+  done
 
--- 続きは次回
 theorem subseq_trans : ∀ l1 l2 l3 : List Nat,
   Subseq l1 l2 → Subseq l2 l3 → Subseq l1 l3 := by
   intro l1 l2 l3 h12 h23
-  induction h12
+  induction h12 generalizing l3
   case nil =>
     apply subseq_nil_l
   case cons x l1' l2' h' ih =>
-    -- theorem subseq_cons : ∀ (x : Nat) (l1 l2 : List Nat),
-    --   Subseq (x :: l1) l2 → Subseq l1 l2 := by
-    sorry
+    have ⟨l3₁, l3₂, l3_eq, h⟩ := subseq_split h23
+    have ih' := Subseq.cons x _ _ (ih l3₂ h)
+    rw [l3_eq]
+    apply subseq_app_right
+    exact ih'
   case skip x l1' l2' h' ih =>
-    sorry
+    have ⟨l3₁, l3₂, l3_eq, h⟩ := subseq_split h23
+    have ih' := Subseq.skip x _ _ (ih l3₂ h)
+    rw [l3_eq]
+    apply subseq_app_right
+    exact ih'
   done
+
+namespace RProvability2
+inductive R : Nat → List Nat → Prop where
+  | c1                        : R 0        []
+  | c2 n l (H: R n        l) : R (n.succ) (n :: l)
+  | c3 n l (H: R (n.succ) l) : R n        l
+
+example : R 2 [1, 0] := by
+  apply R.c2
+  apply R.c2
+  apply R.c1
+
+example : R 1 [1, 2, 1, 0] := by
+  apply R.c3
+  apply R.c2
+  apply R.c3
+  apply R.c3
+  apply R.c2
+  apply R.c2
+  apply R.c2
+  apply R.c1
+
+example : R 6 [3, 2, 1, 0] := by
+  apply R.c3
+  sorry
+
+end RProvability2
+
+inductive total_relation : Nat → Nat → Prop where
+  | intro (n m : Nat) : total_relation n m
+
+theorem total_relation_is_total
+  : ∀ n m, total_relation n m := by
+  intro n m
+  constructor
+
+inductive empty_relation : Nat → Nat → Prop where
+  -- no constructor
+
+theorem empty_relation_is_empty
+  : ∀ n m, ¬ empty_relation n m := by
+  intro n m h
+  nomatch h
+
+
+inductive reg_exp (T : Type) : Type where
+  | EmptySet
+  | EmptyStr
+  | Char (t : T)
+  | App (r1 r2 : reg_exp T)
+  | Union (r1 r2 : reg_exp T)
+  | Star (r : reg_exp T)
+
+
+inductive exp_match {T} : List T → reg_exp T → Prop where
+  | MEmpty : exp_match [] .EmptyStr
+  | MChar x : exp_match [x] (.Char x)
+  | MApp s1 re1 s2 re2
+             (H1 : exp_match s1 re1)
+             (H2 : exp_match s2 re2)
+           : exp_match (s1 ++ s2) (.App re1 re2)
+  | MUnionL s1 re1 re2
+                (H1 : exp_match s1 re1)
+              : exp_match s1 (.Union re1 re2)
+  | MUnionR s2 re1 re2
+                (H2 : exp_match s2 re2)
+              : exp_match s2 (.Union re1 re2)
+  | MStar0 re : exp_match [] (.Star re)
+  | MStarApp s1 s2 re
+                 (H1 : exp_match s1 re)
+                 (H2 : exp_match s2 (.Star re))
+               : exp_match (s1 ++ s2) (.Star re)
+
+infix:50 " =~ " => exp_match
+#check ['a'] =~ .Char 'a'
+#check "aaaaa".toList =~ (reg_exp.Char 'a').Star
+
+theorem reg_exp_ex1 : [1] =~ .Char 1 := by
+  apply exp_match.MChar
+
+theorem reg_exp_ex2 : [1, 2] =~ .App (.Char 1) (.Char 2) := by
+  apply exp_match.MApp [1]
+  · apply exp_match.MChar
+  · apply exp_match.MChar
+
+theorem reg_exp_ex3 : ¬ ([1, 2] =~ .Char 1) := by
+  generalize h1 : [1, 2] = s
+  intro h
+  cases h
+  nomatch h1
+
+def reg_exp_of_list {T} (l : List T) : reg_exp T :=
+  match l with
+  | [] => .EmptyStr
+  | x :: l' => .App (.Char x) (reg_exp_of_list l')
+
+example : [1, 2, 3] =~ reg_exp_of_list [1, 2, 3] := by
+  simp [reg_exp_of_list]
+  apply exp_match.MApp [1]
+  · apply exp_match.MChar
+  · apply exp_match.MApp [2]
+    · apply exp_match.MChar
+    · apply exp_match.MApp [3]
+      · apply exp_match.MChar
+      · apply exp_match.MEmpty
+  done
+
+theorem MStar1 :
+  ∀ T s (re : reg_exp T) ,
+    s =~ re →
+    s =~ .Star re := by
+  intro T s re h
+  rw [← List.append_nil s]
+  apply exp_match.MStarApp
+  · exact h
+  · apply exp_match.MStar0
