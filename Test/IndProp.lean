@@ -1214,3 +1214,233 @@ theorem MStar1 :
   apply exp_match.MStarApp
   · exact h
   · apply exp_match.MStar0
+
+theorem EmptySet_is_empty : ∀ T (s : List T),
+  ¬ (s =~ .EmptySet) := by
+  intro T s h
+  cases h
+  done
+
+theorem MUnion' : ∀ T (s : List T) (re1 re2 : reg_exp T),
+  s =~ re1 ∨ s =~ re2 →
+  s =~ .Union re1 re2 := by
+  intro T s re1 re2 h
+  cases h
+  case inl h1 =>
+    apply exp_match.MUnionL
+    exact h1
+  case inr h2 =>
+    apply exp_match.MUnionR
+    exact h2
+
+theorem MStar'_lemma
+  : ∀ T (ss ss1 ss2 : List (List T)) (re : reg_exp T),
+  ss = ss1 ++ ss2 →
+  (∀ s, In s ss → s =~ re) →
+  fold (· ++ ·) ss2 [] =~ .Star re := by
+  intro T ss ss1 ss2 re h_eq h
+  induction ss2 generalizing ss1
+  case nil =>
+    apply exp_match.MStar0
+  case cons s ss2' ih =>
+    rw [fold]
+    apply exp_match.MStarApp
+    · apply h
+      rw [h_eq, In_app_iff]
+      right
+      left
+      rfl
+    · apply ih (ss1 ++ [s])
+      rw [h_eq, List.append_assoc]
+      rfl
+
+
+theorem MStar' : ∀ T (ss : List (List T)) (re : reg_exp T),
+  (∀ s, In s ss → s =~ re) →
+  fold (· ++ ·) ss [] =~ .Star re := by
+  intro T ss re h
+  apply MStar'_lemma T ss [] ss re rfl h
+
+
+def EmptyStr' {T : Type} := reg_exp.Star (T := T) .EmptySet
+
+theorem EmptyStr_eq_EmptyStr' : ∀ (T : Type) (s : List T),
+  s =~ .EmptyStr ↔ s =~ EmptyStr' := by
+  intro T s
+  constructor
+  case mp =>
+    intro h
+    cases h
+    apply exp_match.MStar0
+  case mpr =>
+    intro h
+    cases h
+    case MStar0 =>
+      apply exp_match.MEmpty
+    case MStarApp s1 s2 h1 h2 =>
+      cases h1
+  done
+
+
+def re_chars {T} (re : reg_exp T) : List T :=
+  match re with
+  | .EmptySet => []
+  | .EmptyStr => []
+  | .Char x => [x]
+  | .App re1 re2 => re_chars re1 ++ re_chars re2
+  | .Union re1 re2 => re_chars re1 ++ re_chars re2
+  | .Star re => re_chars re
+
+theorem in_re_match
+  : ∀ T (s : List T) (re : reg_exp T) (x : T),
+  s =~ re →
+  In x s →
+  In x (re_chars re) := by
+  intro T s re x h_match h_in
+  induction h_match
+  case MEmpty =>
+    cases h_in
+  case MChar y =>
+    unfold re_chars
+    exact h_in
+  case MApp s1 re1 s2 re2 h1 h2 ih1 ih2 =>
+    unfold re_chars
+    rw [In_app_iff] at h_in ⊢
+    cases h_in
+    case inl h =>
+      left
+      exact ih1 h
+    case inr h =>
+      right
+      exact ih2 h
+  case MUnionL s1 re1 re2 h1 ih1 =>
+    unfold re_chars
+    rw [In_app_iff]
+    left
+    apply ih1 h_in
+  case MUnionR s2 re1 re2 h2 ih2 =>
+    unfold re_chars
+    rw [In_app_iff]
+    right
+    apply ih2 h_in
+  case MStar0 re =>
+    cases h_in
+  case MStarApp s1 s2 re h1 h2 ih1 ih2 =>
+    unfold re_chars
+    rw [In_app_iff] at h_in
+    cases h_in
+    case inl h =>
+      apply ih1 h
+    case inr h =>
+      apply ih2 h
+  done
+
+
+-- tests whether a regular expression matches some string.
+def re_not_empty {T : Type} (re : reg_exp T) : Bool :=
+  match re with
+  | .EmptySet => false
+  | .EmptyStr => true
+  | .Char _x => true
+  | .App re1 re2 => re_not_empty re1 && re_not_empty re2
+  | .Union re1 re2 => re_not_empty re1 || re_not_empty re2
+  | .Star _re => true
+
+theorem re_not_empty_correct : ∀ T (re : reg_exp T),
+  (∃ s, s =~ re) ↔ re_not_empty re := by
+  intro T re
+  constructor
+  case mp =>
+    intro ⟨s, h_match⟩
+    induction h_match
+    case MEmpty =>
+      rfl
+    case MChar x =>
+      rfl
+    case MApp s1 re1 s2 re2 h1 h2 ih1 ih2 =>
+      unfold re_not_empty
+      rw [ih1, ih2]
+      rfl
+    case MUnionL s1 re1 re2 h1 ih1 =>
+      unfold re_not_empty
+      rw [ih1]
+      rfl
+    case MUnionR s2 re1 re2 h2 ih2 =>
+      unfold re_not_empty
+      rw [ih2]
+      simp
+    case MStar0 re =>
+      rfl
+    case MStarApp s1 s2 re h1 h2 ih1 ih2 =>
+      unfold re_not_empty
+      rfl
+  case mpr =>
+    intro h
+    induction re
+    case EmptySet =>
+      cases h
+    case EmptyStr =>
+      exists []
+      apply exp_match.MEmpty
+    case Char x =>
+      exists [x]
+      apply exp_match.MChar
+    case App re1 re2 ih1 ih2 =>
+      simp_all [re_not_empty]
+      rcases ih1 with ⟨s1, h1⟩
+      rcases ih2 with ⟨s2, h2⟩
+      exists (s1 ++ s2)
+      apply exp_match.MApp _ _ _ _ h1 h2
+    case Union re1 re2 ih1 ih2 =>
+      simp_all [re_not_empty]
+      cases h
+      case inl h1 =>
+        rcases ih1 h1 with ⟨s1, h1'⟩
+        exists s1
+        apply exp_match.MUnionL _ _ _ h1'
+      case inr h2 =>
+        rcases ih2 h2 with ⟨s2, h2'⟩
+        exists s2
+        apply exp_match.MUnionR _ _ _ h2'
+    case Star re ih =>
+      exists []
+      apply exp_match.MStar0
+
+
+theorem star_app_sorry: ∀ T (s1 s2 : List T) (re : reg_exp T),
+  s1 =~ .Star re →
+  s2 =~ .Star re →
+  s1 ++ s2 =~ .Star re := by
+  intro T s1 s2 re h1
+  -- induction h1
+  sorry
+
+theorem star_app: ∀ T (s1 s2 : List T) (re : reg_exp T),
+  s1 =~ re.Star →
+  s2 =~ re.Star →
+  s1 ++ s2 =~ re.Star := by
+  intro T s1 s2 re h1
+  generalize Eq : re.Star = re' at h1
+  induction h1
+  case MEmpty =>
+    contradiction
+  case MChar x =>
+    contradiction
+  case MApp s1' re1 s2' re2 h1' h2 ih1 ih2 =>
+    contradiction
+  case MUnionL s1' re1 re2 h1' ih1 =>
+    contradiction
+  case MUnionR s2' re1 re2 h2' ih2 =>
+    contradiction
+  case MStar0 re'' =>
+    intro h2
+    apply h2
+  case MStarApp s1' s2' re'' h1' h2' ih1 ih2 =>
+    intro h2
+    rw [List.append_assoc]
+    apply exp_match.MStarApp
+    · apply h1'
+    · apply ih2
+      · apply Eq
+      · apply h2
+  done
