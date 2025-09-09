@@ -402,7 +402,7 @@ theorem ev_plus_plus : ∀ n m p,
   have enn : ev (n + n) := by
     apply ev_n_plus_n
   have nnmp : n + m + (n + p) = n + n + (m + p) := by
-    simp_arith
+    simp +arith
   rw [nnmp] at enmnp
   exact ev_ev__ev _ _ enmnp enn
 

@@ -1164,7 +1164,7 @@ example :
     ∀ l1 l2, eqb_list eqb l1 l2 = true ↔ l1 = l2 := by
   intro A eqb heqb
   -- ↓代わりに`intro l1 l2; induction l1, l2 using eqb_list.induct eqb`としても良い
-  apply eqb_list.induct eqb
+  apply eqb_list.induct
   -- 両方空リストのパターン
   case case1 => simp [eqb_list]
   -- 互いの長さが異なるパターン
