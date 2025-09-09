@@ -455,12 +455,6 @@ theorem app_assoc4 : ∀ l1 l2 l3 l4 : NatList,
 theorem nonzeros_app : forall l1 l2 : NatList,
   nonzeros (l1 ++ l2) = (nonzeros l1) ++ (nonzeros l2) := by
   intro l1 l2
-  simp [
-    HAppend.hAppend,
-    Append.append,
-    NatList.append,
-    nonzeros
-  ]
   induction l1
   case Nil =>
     rfl
@@ -474,7 +468,6 @@ theorem nonzeros_app : forall l1 l2 : NatList,
     case succ n =>
       simp [nonzeros]
       rw [ih_l1_t]
-      simp [NatList.append]
       done
 
 def eqblist (l1 l2 : NatList) : Bool :=

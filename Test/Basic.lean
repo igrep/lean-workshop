@@ -699,5 +699,5 @@ theorem inc_toNat_eq_toNat_succ : ∀ n : Bin, n.inc.toNat = .succ n.toNat := by
     simp [Bin.inc, Bin.toNat]
     rw [inc_toNat_eq_toNat_succ]
     -- 詳しい証明は次の章で再チャレンジ！
-    simp_arith
+    simp +arith
   done

@@ -26,7 +26,7 @@ theorem myAdd_add : ∀ n m : Nat,
   case succ n' ih =>
     simp [myAdd]
     rw [ih]
-    simp_arith
+    simp +arith
 
 infixl:150 " +!+ " => myAdd
 
@@ -140,7 +140,7 @@ theorem double_mul : ∀ n : Nat,
   case succ n' n_ih =>
     simp only [double, Nat.mul_succ]
     rewrite [n_ih]
-    simp_arith
+    simp +arith
 
 
 theorem evenb_S : forall n : Nat,
@@ -429,10 +429,10 @@ theorem inc_bin_toNat : ∀ b, Bin.toNat (Bin.inc b) = .succ (Bin.toNat b) := by
   induction b
   case Z => rfl
   case B0 b' _b_ih =>
-    simp [Bin.toNat]
+    simp [Bin.toNat, Bin.inc]
     done
   case B1 b' b_ih =>
-    simp [Bin.toNat]
+    simp [Bin.toNat, Bin.inc]
     rw [b_ih]
     generalize Bin.toNat b' = x
     rw [Nat.succ_mul]
@@ -515,8 +515,8 @@ theorem ofNat_double_nonzero (n : Nat) (h : n ≠ 0):
     simp only [Bin.ofNat]
     nomatch h
   case succ n' n_ih =>
-    simp [Bin.ofNat, Nat.succ_add]
-    rw [show n' + n' = n' * 2 from by simp_arith]
+    simp +arith [Bin.ofNat]
+    rw [Nat.mul_comm]
     clear h
     by_cases h : n' = 0
     case pos =>
@@ -573,7 +573,7 @@ theorem normalize_ofNat_toNat : ∀ b,
   induction b
   case Z => rfl
   case B1 b' b_ih =>
-    simp only [Bin.ofNat, Bin.normalize]
+    simp only [Bin.toNat, Bin.normalize, Bin.ofNat]
     cases b'_isZero : Bin.isZero b'
     case false =>
       have := toNatBin_isntZero b'_isZero
