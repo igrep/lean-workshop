@@ -1444,3 +1444,56 @@ theorem star_app: ∀ T (s1 s2 : List T) (re : reg_exp T),
       · apply Eq
       · apply h2
   done
+
+#check List.flatten
+
+-- ∃ ss, s1 ++ (s2 ++ s) =
+-- fold (fun x1 x2 => x1 ++ x2) ss []
+-- ∧ ∀ (s' : List T), In s' ss → s' =~ re
+theorem MStar''_lemma
+  : ∀ T (xs : List (List T)) (s : List T) (re : reg_exp T),
+  (∀ x, In x xs → x =~ re) →
+  s =~ re.Star →
+  ∃ ss : List (List T),
+    (xs.flatten ++ s) = ss.flatten
+    ∧ ∀ s', In s' ss → s' =~ re := by
+  intro T xs s re hx hs
+  generalize re_h : re.Star = re' at hs
+  induction hs generalizing xs
+  case MStar0 re'' =>
+    exists xs
+    constructor
+    · simp
+    · exact hx
+  case MStarApp s1 s2 re'' h1 h2 ih1 ih2 =>
+    specialize ih2 (xs ++ [s1])
+    done
+  all_goals contradiction
+
+
+theorem MStar'' : ∀ T (s : List T) (re : reg_exp T),
+  s =~ reg_exp.Star re →
+  ∃ ss : List (List T),
+    s = fold (· ++ ·) ss []
+    ∧ ∀ s', In s' ss → s' =~ re := by
+  intro T s re h
+  cases h
+  case MStar0 =>
+    exists []
+    constructor
+    · rfl
+    · intro s' h_in
+      nomatch h_in
+  case MStarApp s1 s2 h1 h2 =>
+    cases h2
+    case MStar0 =>
+      exists [s1]
+      constructor
+      · rw [fold]
+        rfl
+      · simpa [In]
+    case MStarApp s2 s h2 h =>
+  done
+
+
+#print Exists
