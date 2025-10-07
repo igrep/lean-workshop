@@ -417,6 +417,31 @@ def fold
   | [] => b
   | h :: t => f h (fold f t b)
 
+theorem fold_eq_foldr {X Y : Type}
+  (f : X → Y → Y)
+  (l : List X)
+  (b : Y) :
+  fold f l b = List.foldr f b l := by
+  induction l
+  case nil => rfl
+  case cons h t t_ih =>
+    simp [
+      fold,
+      List.foldr,
+      t_ih
+      ]
+  done
+
+theorem fold_append_eq_flatten {X : Type}
+  (l : List (List X)) :
+  fold (· ++ ·) l [] = l.flatten := by
+  induction l
+  case nil => rfl
+  case cons h t t_ih =>
+    simp [fold, List.flatten, t_ih]
+
+
+
 #check fold and
 #guard fold mult [1, 2, 3, 4] 1 = 24
 #guard fold and [true, true, false, true] true = false

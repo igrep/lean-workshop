@@ -1466,10 +1466,30 @@ theorem MStar''_lemma
     · simp
     · exact hx
   case MStarApp s1 s2 re'' h1 h2 ih1 ih2 =>
+    injection re_h with re_eq
     specialize ih2 (xs ++ [s1])
-    done
-  all_goals contradiction
+    -- ih1: In x xs → x =~ re → re.Star = re''
+    -- ih2: In x (xs ++ [s1]) → x =~ re → re.Star = re''.Star
 
+    -- ih1:  xs         .flatten ++  s1        = ss.flatten ∧ ∀ (s' : List T), In s' ss → s' =~ re
+    -- ih2: (xs ++ [s1]).flatten ++        s2  = ss.flatten ∧ ∀ (s' : List T), In s' ss → s' =~ re
+    -- ⊢     xs         .flatten ++ (s1 ++ s2) = ss.flatten ∧ ∀ (s' : List T), In s' ss → s' =~ re
+    simp [List.append_assoc] at ih2
+    apply ih2 ?ih2_pr re_eq
+    case ih2_pr =>
+      intro x h_in
+      rw [In_app_iff] at h_in
+      cases h_in
+      case inl h =>
+        apply hx
+        exact h
+        done
+      case inr h =>
+        simp [In] at h
+        rw [← h]
+        rw [re_eq]
+        exact h1
+  all_goals contradiction
 
 theorem MStar'' : ∀ T (s : List T) (re : reg_exp T),
   s =~ reg_exp.Star re →
@@ -1477,22 +1497,48 @@ theorem MStar'' : ∀ T (s : List T) (re : reg_exp T),
     s = fold (· ++ ·) ss []
     ∧ ∀ s', In s' ss → s' =~ re := by
   intro T s re h
-  cases h
-  case MStar0 =>
+  have := MStar''_lemma T [] s re (fun x h => False.elim h) h
+  simp at this
+  cases this
+  case intro w h =>
+    exists w
+    rw [fold_append_eq_flatten]
+    exact h
+  done
+
+-- 恐らくこれが想定解
+theorem MStar''2  : ∀ T (s : List T) (re : reg_exp T),
+  s =~ reg_exp.Star re →
+  ∃ ss : List (List T),
+    s = fold (· ++ ·) ss []
+    ∧ ∀ s', In s' ss → s' =~ re := by
+  intro T s re h
+  generalize re_eq : re.Star = re' at h
+  induction h
+  any_goals contradiction
+  case MStar0 re'' =>
+    injection re_eq with re_eq'
     exists []
     constructor
-    · rfl
+    · simp
+      rfl
     · intro s' h_in
       nomatch h_in
-  case MStarApp s1 s2 h1 h2 =>
-    cases h2
-    case MStar0 =>
-      exists [s1]
-      constructor
-      · rw [fold]
-        rfl
-      · simpa [In]
-    case MStarApp s2 s h2 h =>
+  case MStarApp s1 s2 re'' h1 h2 ih1 ih2 =>
+    have ⟨ss, ih2_h1, h2⟩ := ih2 re_eq
+    exists s1 :: ss
+    constructor
+    · rw [ih2_h1]
+      rfl
+    · intro s' h
+      cases h
+      case inl inl_h =>
+        rw [← inl_h]
+        injection re_eq with re_eq'
+        rw [← re_eq'] at h1
+        exact h1
+      case inr inr_h =>
+        exact h2 s' inr_h
   done
 
 
