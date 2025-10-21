@@ -1543,3 +1543,167 @@ theorem MStar''2  : ∀ T (s : List T) (re : reg_exp T),
 
 
 #print Exists
+
+
+def pumping_constant {T} (re : reg_exp T) : Nat :=
+  match re with
+  | .EmptySet => 1
+  | .EmptyStr => 1
+  | .Char _ => 2
+  | .App re1 re2 =>
+      pumping_constant re1 + pumping_constant re2
+  | .Union re1 re2 =>
+      pumping_constant re1 + pumping_constant re2
+  | .Star r => pumping_constant r
+
+theorem pumping_constant_ge_1 :
+  ∀ T (re : reg_exp T),
+    pumping_constant re ≥ 1 := by
+  intro T re
+  induction re
+  case EmptySet =>
+    simp [pumping_constant]
+  case EmptyStr =>
+    simp [pumping_constant]
+  case Char x =>
+    simp [pumping_constant]
+  case App re1 re2 ih1 ih2 =>
+    simp [pumping_constant]
+    apply le_plus_trans
+    apply ih1
+  case Union re1 re2 ih1 ih2 =>
+    simp [pumping_constant]
+    apply le_plus_trans
+    apply ih1
+  case Star r ih =>
+    simp [pumping_constant]
+    apply ih
+
+theorem pumping_constant_0_false :
+  ∀ T (re : reg_exp T),
+    pumping_constant re = 0 → False := by
+  intro T re h
+  have h1 := pumping_constant_ge_1 T re
+  rw [h] at h1
+  simp at h1
+
+def napp {T} (n : Nat) (l : List T) : List T :=
+  match n with
+  | 0 => []
+  | n' + 1 => l ++ napp n' l
+
+theorem napp_plus : ∀ T (n : Nat) (m : Nat) (l : List T),
+  napp (n + m) l = napp n l ++ napp m l := by
+  intro T n m l
+  induction n
+  case zero =>
+    simp
+    rfl
+  case succ n' ih =>
+    rw [show n' + 1 + m = (n' + m) + 1 from by ac_rfl]
+    simp [napp]
+    exact ih
+
+theorem napp_star :
+  ∀ T m s1 s2 (re : reg_exp T),
+    s1 =~ re → s2 =~ re.Star →
+    napp m s1 ++ s2 =~ re.Star := by
+  intro T m s1 s2 re h1 h2
+  induction m
+  case zero =>
+    exact h2
+  case succ m' ih =>
+    simp [napp]
+    apply exp_match.MStarApp
+    · exact h1
+    · exact ih
+
+theorem weak_pumping : ∀ T (re : reg_exp T) s,
+  s =~ re →
+  pumping_constant re ≤ length s →
+  ∃ s1 s2 s3,
+    s = s1 ++ s2 ++ s3 ∧
+    s2 ≠ [] ∧
+    ∀ m, s1 ++ napp m s2 ++ s3 =~ re := by
+  intro T re s h_match
+  induction h_match
+  case MEmpty =>
+    simp [pumping_constant, length]
+  case MChar x =>
+    simp [pumping_constant, length]
+  case MApp s1 re1 s2 re2 h1 h2 ih1 ih2 =>
+    simp [pumping_constant] at ih1 ih2 ⊢
+    rw [app_length_poly]
+    intro h_len
+    cases plus_le_cases _ _ _ _ h_len
+    case inl h1_le =>
+      specialize ih1 h1_le
+      rcases ih1 with ⟨s1_1, s1_2, s1_3, ih1_1, ih1_2, ih1_3⟩
+      exists s1_1, s1_2, (s1_3 ++ s2)
+      constructor
+      · rw [ih1_1]
+        ac_rfl
+      · constructor
+        · exact ih1_2
+        · intro m
+          rw [show s1_1 ++ (napp m s1_2 ++ (s1_3 ++ s2))
+                = (s1_1 ++ (napp m s1_2 ++ s1_3)) ++ s2 from by ac_rfl]
+          apply exp_match.MApp
+          case H1 =>
+            apply ih1_3 m
+          case H2 =>
+            exact h2
+    case inr h2_le =>
+      specialize ih2 h2_le
+      rcases ih2 with ⟨s2_1, s2_2, s2_3, ih2_1, ih2_2, ih2_3⟩
+      exists (s1 ++ s2_1), s2_2, s2_3
+      constructor
+      · rw [ih2_1]
+        ac_rfl
+      · constructor
+        · exact ih2_2
+        · intro m
+          rw [show (s1 ++ s2_1) ++ (napp m s2_2 ++ s2_3)
+                = s1 ++ (s2_1 ++ (napp m s2_2 ++ s2_3)) from by ac_rfl]
+          apply exp_match.MApp
+          case H1 =>
+            apply h1
+          case H2 =>
+            apply ih2_3 m
+  case MUnionL s1 re1 re2 h1 ih1 =>
+    simp [pumping_constant] at ih1 ⊢
+    intro h_len
+    have h_1_and_2 := plus_le _ _ _ h_len
+    specialize ih1 h_1_and_2.left
+    rcases ih1 with ⟨s1_1, s1_2, s1_3, ih1_1, ih1_2, ih1_3⟩
+    exists s1_1, s1_2, s1_3
+    constructor
+    · exact ih1_1
+    · constructor
+      · exact ih1_2
+      · intro m
+        apply exp_match.MUnionL
+        apply ih1_3 m
+  case MUnionR s2 re1 re2 h2 ih2 =>
+    sorry -- 次回はここから
+  case MStar0 re' =>
+    simp [pumping_constant, length]
+    intro h_zero
+    nomatch pumping_constant_0_false _ _ h_zero
+  case MStarApp s1 s2 re' h1 h2 ih1 ih2 =>
+    simp [pumping_constant] at ih1 ih2 ⊢
+    intro h_len
+    /-
+    ∃ s1_1 s2 s3, s1 =
+      s1_1 ++ (s2 ++ s3) ∧
+      ¬s2 = [] ∧
+      ∀ (m : Nat), s1_1 ++ (napp m s2 ++ s3) =~ re'
+    ∃ s1 s2_1 s3, s2 =
+      s1 ++ (s2_1 ++ s3) ∧
+      ¬s2_1 = [] ∧
+      ∀ (m : Nat), s1 ++ (napp m s2_1 ++ s3) =~ re'.Star
+    ∃ s1_1 s2_1 s3,
+      s1 ++ s2 = s1_1 ++ (s2_1 ++ s3) ∧
+      ¬s2_1 = [] ∧
+      ∀ (m : Nat), s1_1 ++ (napp m s2_1 ++ s3) =~ re'.Star
+    -/
