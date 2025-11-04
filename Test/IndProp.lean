@@ -1685,7 +1685,19 @@ theorem weak_pumping : ∀ T (re : reg_exp T) s,
         apply exp_match.MUnionL
         apply ih1_3 m
   case MUnionR s2 re1 re2 h2 ih2 =>
-    sorry -- 次回はここから
+    simp [pumping_constant] at ih2 ⊢
+    intro h_len
+    have h_1_and_2 := plus_le _ _ _ h_len
+    specialize ih2 h_1_and_2.right
+    rcases ih2 with ⟨s2_1, s2_2, s2_3, ih2_1, ih2_2, ih2_3⟩
+    exists s2_1, s2_2, s2_3
+    constructor
+    · exact ih2_1
+    · constructor
+      · exact ih2_2
+      · intro m
+        apply exp_match.MUnionR
+        apply ih2_3 m
   case MStar0 re' =>
     simp [pumping_constant, length]
     intro h_zero
@@ -1693,17 +1705,132 @@ theorem weak_pumping : ∀ T (re : reg_exp T) s,
   case MStarApp s1 s2 re' h1 h2 ih1 ih2 =>
     simp [pumping_constant] at ih1 ih2 ⊢
     intro h_len
-    /-
-    ∃ s1_1 s2 s3, s1 =
-      s1_1 ++ (s2 ++ s3) ∧
-      ¬s2 = [] ∧
-      ∀ (m : Nat), s1_1 ++ (napp m s2 ++ s3) =~ re'
-    ∃ s1 s2_1 s3, s2 =
-      s1 ++ (s2_1 ++ s3) ∧
-      ¬s2_1 = [] ∧
-      ∀ (m : Nat), s1 ++ (napp m s2_1 ++ s3) =~ re'.Star
-    ∃ s1_1 s2_1 s3,
-      s1 ++ s2 = s1_1 ++ (s2_1 ++ s3) ∧
-      ¬s2_1 = [] ∧
-      ∀ (m : Nat), s1_1 ++ (napp m s2_1 ++ s3) =~ re'.Star
-    -/
+    rw [app_length_poly] at h_len
+    cases s1
+    case nil =>
+      clear h1 ih1
+      simp [length] at h_len
+      apply ih2 h_len
+    case cons x s1' =>
+      clear ih1 ih2
+      exists [], (x :: s1'), s2
+      constructor
+      · rfl
+      · constructor
+        · intro h_empty
+          nomatch h_empty
+        · intro m
+          apply napp_star _ _ _ _ _ h1 h2
+
+theorem pumping : ∀ T (re : reg_exp T) s,
+  s =~ re →
+  pumping_constant re ≤ length s →
+  ∃ s1 s2 s3,
+    s = s1 ++ s2 ++ s3 ∧
+    s2 ≠ [] ∧
+    length s1 + length s2 ≤ pumping_constant re ∧
+    ∀ m, s1 ++ napp m s2 ++ s3 =~ re := by
+  intro T re s h_match
+  induction h_match
+  case MEmpty =>
+    simp [pumping_constant, length]
+  case MChar x =>
+    simp [pumping_constant, length]
+  case MApp s1 re1 s2 re2 h1 h2 ih1 ih2 =>
+    simp [pumping_constant] at ih1 ih2 ⊢
+    rw [app_length_poly]
+    intro h_len
+    cases lt_ge_cases (length s1) (pumping_constant re1)
+    case inr h1_ge =>
+      specialize ih1 h1_ge
+      rcases ih1 with ⟨s1_1, s1_2, s1_3, ih1_1, ih1_2, ih1_3, ih1_4⟩
+      exists s1_1, s1_2, (s1_3 ++ s2)
+      constructor
+      · rw [ih1_1]
+        ac_rfl
+      · constructor
+        · exact ih1_2
+        · constructor
+          · apply le_plus_trans
+            apply ih1_3
+          · intro m
+            rw [show s1_1 ++ (napp m s1_2 ++ (s1_3 ++ s2))
+                  = (s1_1 ++ (napp m s1_2 ++ s1_3)) ++ s2 from by ac_rfl]
+            apply exp_match.MApp
+            case H1 =>
+              apply ih1_4 m
+            case H2 =>
+              exact h2
+    case inl h1_lt =>
+      have h2_le : pumping_constant re2 ≤ length s2 := by
+        omega
+      specialize ih2 h2_le
+      rcases ih2 with ⟨s2_1, s2_2, s2_3, ih2_1, ih2_2, ih2_3, ih2_4⟩
+      exists (s1 ++ s2_1), s2_2, s2_3
+      constructor
+      · rw [ih2_1]
+        ac_rfl
+      · constructor
+        · exact ih2_2
+        · constructor
+          · rw [app_length_poly]
+            omega
+          · intro m
+            rw [show (s1 ++ s2_1) ++ (napp m s2_2 ++ s2_3)
+                  = s1 ++ (s2_1 ++ (napp m s2_2 ++ s2_3)) from by ac_rfl]
+            apply exp_match.MApp
+            case H1 =>
+              apply h1
+            case H2 =>
+              apply ih2_4 m
+  case MUnionL s1 re1 re2 h1 ih1 =>
+    simp [pumping_constant] at ih1 ⊢
+    intro h_len
+    have h_1_and_2 := plus_le _ _ _ h_len
+    specialize ih1 h_1_and_2.left
+    rcases ih1 with ⟨s1_1, s1_2, s1_3, ih1_1, ih1_2, ih1_3⟩
+    exists s1_1, s1_2, s1_3
+    constructor
+    · exact ih1_1
+    · constructor
+      · exact ih1_2
+      · intro m -- 次回はここから
+        apply exp_match.MUnionL
+        apply ih1_3 m
+  case MUnionR s2 re1 re2 h2 ih2 =>
+    simp [pumping_constant] at ih2 ⊢
+    intro h_len
+    have h_1_and_2 := plus_le _ _ _ h_len
+    specialize ih2 h_1_and_2.right
+    rcases ih2 with ⟨s2_1, s2_2, s2_3, ih2_1, ih2_2, ih2_3⟩
+    exists s2_1, s2_2, s2_3
+    constructor
+    · exact ih2_1
+    · constructor
+      · exact ih2_2
+      · intro m
+        apply exp_match.MUnionR
+        apply ih2_3 m
+  case MStar0 re' =>
+    simp [pumping_constant, length]
+    intro h_zero
+    nomatch pumping_constant_0_false _ _ h_zero
+  case MStarApp s1 s2 re' h1 h2 ih1 ih2 =>
+    simp [pumping_constant] at ih1 ih2 ⊢
+    intro h_len
+    rw [app_length_poly] at h_len
+    cases s1
+    case nil =>
+      clear h1 ih1
+      simp [length] at h_len
+      apply ih2 h_len
+    case cons x s1' =>
+      clear ih1 ih2
+      exists [], (x :: s1'), s2
+      constructor
+      · rfl
+      · constructor
+        · intro h_empty
+          nomatch h_empty
+        · intro m
+          apply napp_star _ _ _ _ _ h1 h2
