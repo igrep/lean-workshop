@@ -779,6 +779,14 @@ theorem le_plus_trans : ∀ n m p : Nat,
     apply Nat.le.step
     exact ih
 
+theorem le_plus_trans_r : ∀ n m p : Nat,
+  n ≤ m →
+  n ≤ p + m := by
+  intro n m p h
+  rw [Nat.add_comm p m]
+  apply le_plus_trans
+  exact h
+
 theorem lt_ge_cases : ∀ n m : Nat,
   n < m ∨ n ≥ m := by
   intro n m
@@ -1794,9 +1802,12 @@ theorem pumping : ∀ T (re : reg_exp T) s,
     · exact ih1_1
     · constructor
       · exact ih1_2
-      · intro m -- 次回はここから
-        apply exp_match.MUnionL
-        apply ih1_3 m
+      · constructor
+        · apply le_plus_trans
+          exact ih1_3.left
+        · intro m
+          apply exp_match.MUnionL
+          apply ih1_3.right
   case MUnionR s2 re1 re2 h2 ih2 =>
     simp [pumping_constant] at ih2 ⊢
     intro h_len
@@ -1808,9 +1819,12 @@ theorem pumping : ∀ T (re : reg_exp T) s,
     · exact ih2_1
     · constructor
       · exact ih2_2
-      · intro m
-        apply exp_match.MUnionR
-        apply ih2_3 m
+      · constructor
+        · apply le_plus_trans_r
+          exact ih2_3.left
+        · intro m
+          apply exp_match.MUnionR
+          apply ih2_3.right
   case MStar0 re' =>
     simp [pumping_constant, length]
     intro h_zero
@@ -1819,18 +1833,58 @@ theorem pumping : ∀ T (re : reg_exp T) s,
     simp [pumping_constant] at ih1 ih2 ⊢
     intro h_len
     rw [app_length_poly] at h_len
-    cases s1
-    case nil =>
-      clear h1 ih1
-      simp [length] at h_len
-      apply ih2 h_len
-    case cons x s1' =>
-      clear ih1 ih2
-      exists [], (x :: s1'), s2
-      constructor
-      · rfl
-      · constructor
-        · intro h_empty
-          nomatch h_empty
+    cases lt_ge_cases (length s1) (pumping_constant re')
+    case inl h1_lt =>
+      clear ih1
+      cases s1
+      case nil =>
+        simp [length] at h_len
+        specialize ih2 h_len
+        simp
+        exact ih2
+      case cons x s1' =>
+        exists [], x :: s1', s2
+        simp [length]
+        constructor
+        · simp [length] at h1_lt
+          apply n_lt_m__n_le_m
+          assumption
         · intro m
           apply napp_star _ _ _ _ _ h1 h2
+    case inr h1_ge =>
+      clear ih2
+      specialize ih1 h1_ge
+      rcases ih1 with ⟨s1_1, s1_2, s1_3, ih1_1, ih1_2, ih1_3, ih1_4⟩
+      exists s1_1, s1_2, (s1_3 ++ s2)
+      constructor
+      · rw [ih1_1]
+        ac_rfl
+      · constructor
+        · exact ih1_2
+        · constructor
+          · exact ih1_3
+          · intro m
+            specialize ih1_4 m
+            rw [show s1_1 ++ (napp m s1_2 ++ (s1_3 ++ s2))
+                  = (s1_1 ++ (napp m s1_2 ++ s1_3)) ++ s2 from by ac_rfl]
+            apply exp_match.MStarApp
+            · exact ih1_4
+            · exact h2
+
+
+inductive reflect (P : Prop) : Bool → Prop where
+  | ReflectT (H : P) : reflect P true
+  | ReflectF (H : ¬ P) : reflect P false
+
+
+theorem iff_reflect : ∀ P b, (P ↔ b = true) → reflect P b := by
+  intro P b h
+  cases b
+  case true =>
+    apply reflect.ReflectT
+    rw [h]
+  case false =>
+    apply reflect.ReflectF
+    rw [h]
+    intro hP
+    contradiction
