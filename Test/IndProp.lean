@@ -1888,3 +1888,137 @@ theorem iff_reflect : ∀ P b, (P ↔ b = true) → reflect P b := by
     rw [h]
     intro hP
     contradiction
+
+
+theorem reflect_iff : ∀ P b, reflect P b → (P ↔ b = true) := by
+  intro P b h
+  constructor
+  case mp =>
+    intro hP
+    cases h
+    case ReflectT H =>
+      rfl
+    case ReflectF H =>
+      contradiction
+  case mpr =>
+    intro h_eq
+    cases h
+    case ReflectT H =>
+      exact H
+    case ReflectF H =>
+      contradiction
+
+
+theorem eqbP : ∀ n m, reflect (n = m) (n =? m) := by
+  intro n m
+  apply iff_reflect
+  rw [eqb_eq]
+  done  -- rfl は不要
+
+
+theorem filter_not_empty_In : ∀ n l,
+  filter (fun x => n =? x) l ≠ [] → In n l := by
+  intro n l
+  induction l
+  case nil =>
+    intro h
+    apply h
+    rfl
+  case cons x l' ih =>
+    intro h
+    cases hb : n =? x
+    case true =>
+      simp [In]
+      left
+      rw [eqb_eq] at hb
+      rw [hb]
+    case false =>
+      simp [In]
+      right
+      apply ih
+      simp [filter, hb] at h
+      apply h
+
+
+theorem filter_not_empty_In' : ∀ n l,
+  filter (fun x => n =? x) l ≠ [] →
+  In n l := by
+  intro n l
+  induction l
+  case nil =>
+    intro h
+    apply h
+    rfl
+  case cons x l' ih =>
+    intro h
+    simp [In]
+    have h_eqbP := eqbP n x
+    generalize hb : (n =? x) = b at h_eqbP
+    cases h_eqbP
+    case ReflectT eqnm =>
+      rw [eqnm]
+      left
+      rfl
+    case ReflectF neqnm =>
+      right
+      apply ih
+      simp [filter, hb] at h
+      apply h
+
+
+def count n l :=
+  match l with
+  | [] => 0
+  | m :: l' => (if n =? m then 1 else 0) + count n l'
+
+
+theorem eqbP_practice : ∀ n l,
+  count n l = 0 → ¬(In n l) := by
+  intro n l h_count
+  induction l
+  case nil =>
+    intro h_in
+    contradiction
+  case cons m l' ih =>
+    intro h_in
+    simp [count] at h_count
+    specialize ih h_count.right
+    simp [In] at h_in
+    cases h_in
+    case inl h_eq =>
+      symm at h_eq
+      rw [← eqb_eq] at h_eq
+      rw [h_eq] at h_count
+      nomatch h_count.left
+    case inr h_in' =>
+      contradiction
+
+#print Decidable
+
+
+inductive nostutter {X:Type} : List X → Prop where
+  | nil : nostutter []
+  | single {x : X} : nostutter [x]
+  | cons {x y : X} {l : List X}
+         (h1 : x ≠ y)
+         (h2 : nostutter (y :: l)) :
+       nostutter (x :: y :: l)
+
+theorem test_nostutter_1: nostutter [3, 1, 4, 1, 5, 6] := by
+  repeat apply nostutter.cons (by simp)
+  apply nostutter.single
+
+theorem test_nostutter_2: nostutter (X := Nat) [] := by
+  apply nostutter.nil
+
+theorem test_nostutter_3: nostutter [5] := by
+  apply nostutter.single
+
+theorem test_nostutter_4: ¬ nostutter [3, 1, 1, 4] := by
+  intro h
+  cases h
+  case cons h1 h2 =>
+    cases h2
+    case cons h3 h4 =>
+      simp at h1
+      contradiction
