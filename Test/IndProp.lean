@@ -2022,3 +2022,139 @@ theorem test_nostutter_4: ¬ nostutter [3, 1, 1, 4] := by
     case cons h3 h4 =>
       simp at h1
       contradiction
+
+
+inductive Merge { X : Type u }
+  : List X → List X → List X → Prop where
+  | mergeNilLeft : ∀ l : List X,
+      Merge [] l l
+  | mergeNilRight : ∀ l : List X,
+      Merge l [] l
+  | mergeConsLeft : ∀ (x : X) (l1 l2 l3 : List X),
+      Merge l1 l2 l3 →
+      Merge (x :: l1) l2 (x :: l3)
+  | mergeConsRight : ∀ (x : X) (l1 l2 l3 : List X),
+      Merge l1 l2 l3 →
+      Merge l1 (x :: l2) (x :: l3)
+
+theorem filter_all_nil :
+  ∀ {X : Type} {l : List X} {test : X → Bool},
+  All (fun n => test n = false) l →
+  filter test l = [] := by
+  intro X l test
+  intro h
+  induction l
+  case nil =>
+    rfl
+  case cons hd tl ih =>
+    unfold filter
+    rcases h with ⟨h1, h2⟩
+    rw [h1]
+    simp
+    apply ih h2
+
+theorem filter_all_id :
+  ∀ {X : Type} {l : List X} {test : X → Bool},
+  All (fun n => test n = true) l →
+  filter test l = l := by
+  intro X l test h_all
+  induction l
+  case nil =>
+    rfl
+  case cons hd tl ih =>
+    rcases h_all with ⟨h_hd, h_tl⟩
+    unfold filter
+    rw [h_hd]
+    simp
+    apply ih h_tl
+
+theorem merge_filter
+  : ∀ (X : Type) (test: X → Bool) (l l1 l2 : List X),
+  Merge l1 l2 l →
+  All (fun n => test n = true) l1 →
+  All (fun n => test n = false) l2 →
+  filter test l = l1 := by
+  intro X test l sl l2 h_merge h_all1 h_all2
+  induction h_merge
+  case mergeNilLeft l' =>
+    apply filter_all_nil
+    exact h_all2
+  case mergeNilRight l' =>
+    rw [filter_all_id]
+    exact h_all1
+  case mergeConsLeft x l1' l2' l3' h_merge' ih =>
+    rcases h_all1 with ⟨h_hd, h_tl⟩
+    unfold filter
+    rw [h_hd]
+    simp
+    apply ih
+    · exact h_tl
+    · exact h_all2
+  case mergeConsRight x l1' l2' l3' h_merge' ih =>
+    rcases h_all2 with ⟨h_hd, h_tl⟩
+    unfold filter
+    rw [h_hd]
+    simp
+    apply ih
+    · exact h_all1
+    · exact h_tl
+
+def IsSubseq {X : Type} (sl l : List X) : Prop :=
+  ∃ sl' : List X, Merge sl sl' l
+
+theorem filter_subseq
+  {X: Type} (test : X → Bool) (l : List X) :
+  IsSubseq (filter test l) l := by
+  unfold IsSubseq
+  exists (filter (fun n => (test n) = false) l)
+  induction l
+  case nil =>
+    apply Merge.mergeNilLeft
+  case cons hd tl ih =>
+    cases hb : test hd
+    case true =>
+      unfold filter
+      simp [hb]
+      apply Merge.mergeConsLeft
+      simp at ih
+      exact ih
+    case false =>
+      unfold filter
+      simp [hb]
+      apply Merge.mergeConsRight
+      simp at ih
+      exact ih
+
+
+theorem filter_challenge_2
+  {X: Type} (test : X → Bool) (l s : List X) :
+  (h : IsSubseq s l) →
+  (All (fun n => test n = true) s) →
+  s.length ≤ (filter test l).length
+  ∧ IsSubseq (filter test l) l := by
+  intro h_subseq h_all
+  apply And.intro
+  · unfold IsSubseq at h_subseq
+    rcases h_subseq with ⟨sl', h_merge⟩
+    induction h_merge
+    case mergeNilLeft l' =>
+      apply Nat.zero_le
+    case mergeNilRight l' =>
+      simp [filter_all_id h_all]
+    case mergeConsLeft x l1 l2 l3 h_merge' ih =>
+      rcases h_all with ⟨h_hd, h_tl⟩
+      simp
+      simp [filter, h_hd]
+      exact ih h_tl
+    case mergeConsRight x l1 l2 l3 h_merge' ih =>
+      have ih' := ih h_all
+      simp [filter]
+      cases test x
+      case true =>
+        simp
+        apply Nat.le_trans ih'
+        simp
+      case false =>
+        simp
+        exact ih'
+  · exact filter_subseq test l
