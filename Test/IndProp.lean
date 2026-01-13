@@ -2158,3 +2158,99 @@ theorem filter_challenge_2
         simp
         exact ih'
   · exact filter_subseq test l
+
+
+inductive Pal { X : Type }
+  : List X → Prop where
+  | nil : Pal []
+  | single : ∀ x : X, Pal [x]
+  | cons : ∀ (x : X) (l : List X),
+      Pal l →
+      Pal (x :: (l ++ [x]))
+
+
+theorem pal_app_rev
+  : ∀ {X : Type} {l : List X},
+  Pal (l ++ l.reverse) := by
+  intro X l
+  induction l
+  case nil =>
+    apply Pal.nil
+  case cons hd tl ih =>
+    rw [List.reverse_cons]
+    rw [← List.append_assoc]
+    apply Pal.cons
+    exact ih
+
+theorem pal_rev
+  : ∀ {X : Type} {l : List X},
+  Pal l → Pal l.reverse := by
+  intro X l h_pal
+  induction h_pal
+  case nil =>
+    apply Pal.nil
+  case single x =>
+    apply Pal.single
+  case cons x l' h_pal' ih =>
+    simp
+    apply Pal.cons
+    exact ih
+
+namespace PalByReverse
+inductive Pal { X : Type }
+  : List X → Prop where
+  | Pal : ∀ l : List X,
+      l = l.reverse →
+      Pal l
+
+theorem pal_app_rev : ∀ (X : Type) (l : List X),
+  Pal (l ++ l.reverse) := by
+  intro X l
+  apply Pal.Pal
+  rw [List.reverse_append]
+  rw [List.reverse_reverse]
+
+theorem pal_rev : ∀ (X : Type) (l : List X),
+  Pal l → l = l.reverse := by
+  intro X l h_pal
+  cases h_pal
+  case Pal h_eq =>
+    exact h_eq
+end PalByReverse
+
+
+theorem List.nil_or_append_last
+  : ∀ {X: Type} (l: List X),
+  l = [] ∨ ∃ (init : List X) (lst : X), l = init ++ [lst] := by
+  intro X l
+  induction l
+  case nil =>
+    left
+    rfl
+  case cons hd tl ih =>
+    right
+    cases ih
+    case inl h_nil =>
+      exists [], hd
+      rw [h_nil]
+      rfl
+    case inr h_append =>
+      rcases h_append with ⟨init', lst', h_eq⟩
+      exists (hd :: init'), lst'
+      rw [h_eq]
+      rfl
+
+
+theorem palindrome_converse : ∀ {X: Type} (l: List X),
+  l = l.reverse → Pal l := by
+  intro X l h_rev
+  generalize h_len : l.length = n at h_rev
+  revert h_len h_rev l
+  induction n using Nat.strongRecOn
+  case ind n ih =>
+    intro l h_rev h_len
+    cases l
+    case nil =>
+      apply Pal.nil
+    case cons hd tl =>
+      cases List.nil_or_append_last tl
