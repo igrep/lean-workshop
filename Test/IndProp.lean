@@ -2254,3 +2254,164 @@ theorem palindrome_converse : ∀ {X: Type} (l: List X),
       apply Pal.nil
     case cons hd tl =>
       cases List.nil_or_append_last tl
+      case inl h_nil =>
+        rw [h_nil]
+        apply Pal.single
+      case inr h_append =>
+        rcases h_append with ⟨init, lst, h_eq⟩
+        rw [h_eq]
+        rw [h_eq] at h_rev
+        simp at h_rev
+        rcases h_rev with ⟨h_rev_l, h_rev⟩
+        subst hd tl
+        apply Pal.cons
+        have n_plus2 : init.length + 2 = n := by
+          simp at h_len
+          exact h_len
+        specialize ih init.length (by omega) init
+        apply ih
+        · simp only [List.append_cancel_right_eq] at h_rev
+          exact h_rev
+        · rfl
+
+
+inductive DisjointComplex {X : Type}
+  : List X → List X → Prop where
+  | NilLeft (l : List X) :
+      DisjointComplex [] l
+  | NilRight (l : List X) :
+      DisjointComplex l []
+  | ConsLeft (x : X) (l1 l2 : List X)
+      (h_notin : ¬ In x l2)
+      (h_disjoint : DisjointComplex l1 l2) :
+      DisjointComplex (x :: l1) l2
+  | ConsRight (x : X) (l1 l2 : List X)
+      (h_notin : ¬ In x l1)
+      (h_disjoint : DisjointComplex l1 l2) :
+      DisjointComplex l1 (x :: l2)
+
+
+inductive Disjoint {X : Type}
+  : List X → List X → Prop where
+  | Nil (l : List X) :
+      Disjoint [] l
+  | Cons (x : X) (l1 l2 : List X)
+      (h_notin : ¬ In x l2)
+      (h_disjoint : Disjoint l1 l2) :
+      Disjoint (x :: l1) l2
+
+
+theorem notin_disjoint_cons_right :
+  ∀ {X : Type} {x : X} {l1 l2 : List X},
+  ¬In x l1 →
+  Disjoint l1 l2 →
+  Disjoint l1 (x :: l2) := by
+  intro X x l1 l2 h_notin h_disjoint
+  induction h_disjoint
+  case Nil l =>
+    apply Disjoint.Nil
+  case Cons y l1' l2' h_notin' h_disjoint' ih =>
+    apply Disjoint.Cons
+    · unfold In at h_notin ⊢
+      simp at h_notin
+      simp
+      apply And.intro
+      · intro h_eq
+        apply h_notin.left h_eq.symm
+      · exact h_notin'
+    · apply ih
+      unfold In at h_notin
+      simp at h_notin
+      exact h_notin.right
+
+
+theorem disjoint_equiv :
+  ∀ {X : Type} {l1 l2 : List X},
+  DisjointComplex l1 l2 ↔ Disjoint l1 l2 := by
+  intro X l1 l2
+  constructor
+  case mp =>
+    intro h_disjoint
+    induction h_disjoint
+    case NilLeft l =>
+      apply Disjoint.Nil
+    case NilRight l =>
+      induction l
+      case nil =>
+        apply Disjoint.Nil
+      case cons x l' ih =>
+        apply Disjoint.Cons
+        · intro h_in
+          contradiction
+        · exact ih
+    case ConsRight x l1' l2' h_notin h_disjoint' ih =>
+      apply notin_disjoint_cons_right h_notin ih
+    case ConsLeft x l1' l2' h_notin h_disjoint' ih =>
+      apply Disjoint.Cons
+      · exact h_notin
+      · exact ih
+  case mpr =>
+    intro h_disjoint
+    induction h_disjoint
+    case Nil l =>
+      apply DisjointComplex.NilLeft
+    case Cons x l1' l2' h_notin h_disjoint' ih =>
+      apply DisjointComplex.ConsLeft
+      · exact h_notin
+      · exact ih
+
+
+def disjoint_norec
+  {X : Type} (l1 l2: List X) :Prop :=
+  ∀ x, In x l1 → ¬ In x l2
+
+inductive NoDup {X : Type}
+  : List X → Prop where
+  | Nil : NoDup []
+  | Cons (x : X) (l : List X)
+      (h_notin : ¬ In x l)
+      (h_nodup : NoDup l) :
+      NoDup (x :: l)
+
+
+theorem cons_disjoint_notin :
+  ∀ {X : Type} {x : X} {l1 l2 : List X},
+  Disjoint (x :: l1) l2 →
+  ¬ In x l2 := by
+  intro X x l1 l2 h_disjoint
+  cases h_disjoint
+  case Cons h_notin h_disjoint =>
+    exact h_notin
+
+
+theorem disjoint_cons_left :
+  ∀ {X : Type} {x : X} {l1 l2 : List X},
+  Disjoint (x :: l1) l2 →
+  Disjoint l1 l2 := by
+  intro X x l1 l2 h_disjoint
+  cases h_disjoint
+  case Cons h_notin h_disjoint' =>
+    exact h_disjoint'
+
+
+theorem nodup_disjoint : ∀ {X : Type} {l1 l2 : List X},
+  NoDup l1 →
+  NoDup l2 →
+  Disjoint l1 l2 →
+  NoDup (l1 ++ l2) := by
+  intro X l1 l2 h_nodup1 h_nodup2 h_disjoint
+  induction h_nodup1
+  case Nil =>
+    exact h_nodup2
+  case Cons x l1' h_notin1 h_nodup1' ih =>
+    simp
+    apply NoDup.Cons
+    · intro h_in
+      rw [In_app_iff] at h_in
+      cases h_in
+      case inl h_inl =>
+        exact h_notin1 h_inl
+      case inr h_inr =>
+        apply cons_disjoint_notin h_disjoint h_inr
+    · apply ih
+      apply disjoint_cons_left h_disjoint
