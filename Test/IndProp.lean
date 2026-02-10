@@ -2415,3 +2415,104 @@ theorem nodup_disjoint : ∀ {X : Type} {l1 l2 : List X},
         apply cons_disjoint_notin h_disjoint h_inr
     · apply ih
       apply disjoint_cons_left h_disjoint
+
+
+theorem in_split : ∀ (X : Type) (x : X) (l : List X),
+  In x l → ∃ l1 l2, l = l1 ++ x :: l2 := by
+  intro X x l h_in
+  induction l
+  case nil =>
+    contradiction
+  case cons hd tl ih =>
+    simp [In] at h_in
+    cases h_in
+    case inl h_eq =>
+      rw [h_eq]
+      exists [], tl
+    case inr h_in' =>
+      rcases ih h_in' with ⟨l1, l2, h_eq⟩
+      exists (hd :: l1), l2
+      rw [h_eq]
+      rfl
+
+
+inductive repeats {X : Type} : List X → Prop where
+  | here {x : X} {l : List X}
+      (h_in : In x l) :
+      repeats (x :: l)
+  | there {x : X} {l : List X}
+      (h_repeats : repeats l) :
+      repeats (x :: l)
+
+
+theorem pigeonhole_principle : excluded_middle →
+  ∀ (X : Type) (l1 l2 : List X),
+  (∀ x, In x l1 → In x l2) →
+  length l2 < length l1 →
+  repeats l1 := by
+  intro em X l1 l2 h_incl h_length
+  induction l1 generalizing l2
+  case nil =>
+    simp [length] at h_length
+    done
+  case cons hd1 tl1 ih =>
+    simp [length] at h_length
+    -- In x l → ∃ l1 l2, l = l1 ++ x :: l2
+    -- repeats (hd :: tl)
+    --   hd :: (tl1 ++ [hd] ++ tl2)
+    --   hd :: (tl1 ++ [x] ++ tl1_2 ++ [x] ++ tl2)
+
+    have h_incl_hd1 : In hd1 l2 := by
+      apply h_incl
+      simp [In]
+    rcases in_split X hd1 l2 h_incl_hd1 with ⟨l2_1, l2_2, h_eq⟩
+    cases em (In hd1 tl1)
+    case inl h_in =>
+      apply repeats.here
+      exact h_in
+      -- l1: [x, y, y, z]
+      -- l2: [x, y, z]
+
+      -- l1: [x, x, y, z]
+      -- l2: [x, y, z]
+      -- l1': [x, y, z]
+      -- l2': [y, z]
+
+      -- l1: [x, x, x, y, z]
+      -- l2: [x, x, y, z]
+      -- l1': [x, x, y, z]
+      -- l2': [x, y, z]
+      -- l1': [x, y, z]
+      -- l2': [y, z]
+      -- l1': [x, z]
+      -- l2': [z]
+      -- l1': [x]
+      -- l2': []
+
+      -- l1: [x, x, x, y, z]
+      -- l2: [x, x, y, z]
+      -- l1: [x, x, y, z]
+      -- l2: [x, y, z]
+      -- l1: [x, y, z]
+      -- l2: [y, z]
+
+      -- l1: [x, y, z]
+      -- l2: [a, x, y, z]
+      -- l1: [x, y, z]
+      -- l2: [x, y, z]
+
+      -- l1: [x, x, x]
+      -- l2: [x, y]
+      -- l1: [x, x]
+      -- l2: [y]
+
+    case inr h_notin =>
+      apply repeats.there
+      apply ih (l2_1 ++ l2_2)
+      · intro x h_in_tl
+        specialize h_incl x
+        simp [In]
+        right
+        exact h_in_tl
+        done
+      ·
