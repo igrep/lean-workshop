@@ -2450,69 +2450,110 @@ theorem pigeonhole_principle : excluded_middle →
   (∀ x, In x l1 → In x l2) →
   length l2 < length l1 →
   repeats l1 := by
-  intro em X l1 l2 h_incl h_length
-  induction l1 generalizing l2
+  intro em X l1
+  induction l1
   case nil =>
-    simp [length] at h_length
-    done
-  case cons hd1 tl1 ih =>
-    simp [length] at h_length
-    -- In x l → ∃ l1 l2, l = l1 ++ x :: l2
-    -- repeats (hd :: tl)
-    --   hd :: (tl1 ++ [hd] ++ tl2)
-    --   hd :: (tl1 ++ [x] ++ tl1_2 ++ [x] ++ tl2)
-
-    have h_incl_hd1 : In hd1 l2 := by
-      apply h_incl
-      simp [In]
-    rcases in_split X hd1 l2 h_incl_hd1 with ⟨l2_1, l2_2, h_eq⟩
-    cases em (In hd1 tl1)
-    case inl h_in =>
-      apply repeats.here
-      exact h_in
-      -- l1: [x, y, y, z]
-      -- l2: [x, y, z]
-
-      -- l1: [x, x, y, z]
-      -- l2: [x, y, z]
-      -- l1': [x, y, z]
-      -- l2': [y, z]
-
-      -- l1: [x, x, x, y, z]
-      -- l2: [x, x, y, z]
-      -- l1': [x, x, y, z]
-      -- l2': [x, y, z]
-      -- l1': [x, y, z]
-      -- l2': [y, z]
-      -- l1': [x, z]
-      -- l2': [z]
-      -- l1': [x]
-      -- l2': []
-
-      -- l1: [x, x, x, y, z]
-      -- l2: [x, x, y, z]
-      -- l1: [x, x, y, z]
-      -- l2: [x, y, z]
-      -- l1: [x, y, z]
-      -- l2: [y, z]
-
-      -- l1: [x, y, z]
-      -- l2: [a, x, y, z]
-      -- l1: [x, y, z]
-      -- l2: [x, y, z]
-
-      -- l1: [x, x, x]
-      -- l2: [x, y]
-      -- l1: [x, x]
-      -- l2: [y]
-
-    case inr h_notin =>
-      apply repeats.there
+    intro l2 h_in h_len
+    simp [length] at h_len
+  case cons hd tl ih =>
+    intro l2 h_in h_len
+    rcases em (In hd tl) with (h_in_tl | h_notin_tl)
+    · apply repeats.here
+      exact h_in_tl
+    · apply repeats.there
+      have h_in_hd : In hd l2 := by
+        apply h_in
+        unfold In
+        left
+        rfl
+      have in_split_hd := in_split X hd l2 h_in_hd
+      rcases in_split_hd with ⟨l2_1, l2_2, h_eq⟩
       apply ih (l2_1 ++ l2_2)
       · intro x h_in_tl
-        specialize h_incl x
-        simp [In]
-        right
-        exact h_in_tl
+        rw [In_app_iff]
+        have h_x_in_l2 : In x l2 := by
+          apply h_in
+          right
+          exact h_in_tl
+        rw [h_eq] at h_x_in_l2
+        rw [In_app_iff] at h_x_in_l2
+        cases h_x_in_l2
+        case inl h_in_l2_1 =>
+          left
+          exact h_in_l2_1
+        case inr h_in_l2_2 =>
+          right
+          cases h_in_l2_2
+          case inl h_eq_hd =>
+            rw [← h_eq_hd] at h_in_tl
+            contradiction
+          case inr h_in_l2_2' =>
+            exact h_in_l2_2'
+      · simp [length] at h_len
+        rw [h_eq] at h_len
+        rw [app_length_poly] at h_len ⊢
+        simp [length] at h_len
+        rw [← Nat.add_assoc] at h_len
+        rw [@Nat.add_lt_add_iff_right] at h_len
+        exact h_len
         done
-      ·
+      done
+
+
+-- Called `string` in https://softwarefoundations.cis.upenn.edu/lf-current/IndProp.html#lab292
+def ListChar := List Char
+
+
+theorem provable_equiv_true :
+  ∀ (P : Prop), P → (P ↔ True) := by
+  intro P hP
+  constructor
+  case mp =>
+    intro h
+    trivial
+  case mpr =>
+    intro h_true
+    exact hP
+
+theorem not_equiv_false :
+  ∀ (P : Prop), ¬P → (P ↔ False) := by
+  intro P hP
+  constructor
+  case mp =>
+    intro h
+    contradiction
+  case mpr =>
+    intro h_false
+    contradiction
+
+theorem null_matches_none :
+  ∀ (s : ListChar), (s =~ .EmptySet) ↔ False := by
+  intro s
+  apply not_equiv_false
+  intro h
+  nomatch h
+
+theorem empty_matches_eps :
+  ∀ (s : ListChar), (s =~ .EmptyStr) ↔ s = [ ] := by
+  intro s
+  constructor
+  case mp =>
+    intro h
+    cases h
+    rfl
+  case mpr =>
+    intro h
+    rw [h]
+    constructor
+
+theorem empty_nomatch_ne :
+  ∀ (a : Char) s, (a :: s =~ .EmptyStr) ↔ False := by
+  intro a s
+  apply not_equiv_false
+  intro h
+  generalize saeq : a :: s = sa at h
+  cases h
+  nomatch saeq
+  done
+
+
