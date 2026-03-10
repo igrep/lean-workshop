@@ -2557,3 +2557,115 @@ theorem empty_nomatch_ne :
   done
 
 
+theorem char_nomatch_char :
+  ∀ (a b : Char) s,
+  b ≠ a → (b :: s =~ .Char a ↔ False) := by
+  intro a b s h_neq
+  apply not_equiv_false
+  intro h
+  generalize s_eq : b :: s = sb at h
+  cases h
+  injection s_eq with h_hd
+  contradiction
+
+
+theorem char_eps_suffix : ∀ (a : Char) s,
+  a :: s =~ .Char a ↔ s = [] := by
+  intro a s
+  constructor
+  case mp =>
+    intro h
+    generalize s_eq : a :: s = sa at h
+    cases h
+    injection s_eq with h_hd
+  case mpr =>
+    intro h
+    rw [h]
+    constructor
+
+theorem app_exists : ∀ (s : ListChar) re0 re1,
+  s =~ .App re0 re1 ↔
+  ∃ s0 s1, s = s0 ++ s1 ∧ s0 =~ re0 ∧ s1 =~ re1 := by
+  intro s re0 re1
+  constructor
+  case mp =>
+    intro h
+    cases h
+    case MApp s0 s1 h0 h1 =>
+      exists s0, s1
+  case mpr =>
+    intro h
+    rcases h with ⟨s0, s1, h_eq, h_re0, h_re1⟩
+    rw [h_eq]
+    apply exp_match.MApp
+    · exact h_re0
+    · exact h_re1
+
+
+theorem app_ne : ∀ (a : Char) s re0 re1,
+  a :: s =~ (.App re0 re1) ↔
+  ([] =~ re0 ∧ a :: s =~ re1) ∨
+  ∃ s0 s1, s = s0 ++ s1 ∧ a :: s0 =~ re0 ∧ s1 =~ re1 := by
+  intro a s re0 re1
+  constructor
+  case mp =>
+    intro h
+    generalize saeq : a :: s = sa at h
+    cases h
+    case MApp s0 s1 h0 h1 =>
+      cases s0
+      case nil =>
+        left
+        constructor
+        · exact h0
+        · exact h1
+      case cons x s0' =>
+        right
+        injection saeq with h_hd h_tl
+        subst a s
+        exists s0', s1
+  case mpr =>
+    intro h
+    cases h
+    case inl h_app =>
+      rcases h_app with ⟨h_re0, h_re1⟩
+      apply exp_match.MApp [] re0
+      · exact h_re0
+      · exact h_re1
+    case inr h_app =>
+      rcases h_app with ⟨s0, s1, h_eq, h_re0, h_re1⟩
+      subst s
+      apply exp_match.MApp (a :: s0) re0
+      · exact h_re0
+      · exact h_re1
+
+
+theorem  union_disj : ∀ (s : ListChar) re0 re1,
+  s =~ .Union re0 re1 ↔ s =~ re0 ∨ s =~ re1 := by
+  intro s re0 re1
+  constructor
+  case mp =>
+    intro h
+    cases h
+    case MUnionL h0 =>
+      left
+      exact h0
+    case MUnionR h1 =>
+      right
+      exact h1
+  case mpr =>
+    intro h
+    cases h
+    case inl h_re0 =>
+      apply exp_match.MUnionL
+      exact h_re0
+    case inr h_re1 =>
+      apply exp_match.MUnionR
+      exact h_re1
+
+
+theorem star_ne : ∀ (a : Char) s re,
+  a :: s =~ .Star re ↔
+  ∃ s0 s1, s = s0 ++ s1 ∧ a :: s0 =~ re ∧ s1 =~ .Star re := by
+  intro a s re
+  sorry
