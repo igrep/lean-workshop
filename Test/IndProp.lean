@@ -2640,7 +2640,7 @@ theorem app_ne : ∀ (a : Char) s re0 re1,
       · exact h_re1
 
 
-theorem  union_disj : ∀ (s : ListChar) re0 re1,
+theorem union_disj : ∀ (s : ListChar) re0 re1,
   s =~ .Union re0 re1 ↔ s =~ re0 ∨ s =~ re1 := by
   intro s re0 re1
   constructor
@@ -2666,6 +2666,179 @@ theorem  union_disj : ∀ (s : ListChar) re0 re1,
 
 theorem star_ne : ∀ (a : Char) s re,
   a :: s =~ .Star re ↔
-  ∃ s0 s1, s = s0 ++ s1 ∧ a :: s0 =~ re ∧ s1 =~ .Star re := by
+  ∃ s0 s1,
+    s = s0 ++ s1 ∧ a :: s0 =~ re
+    ∧ s1 =~ .Star re := by
   intro a s re
-  sorry
+  constructor
+  case mp =>
+    intro h
+    generalize saeq : a :: s = sa at h
+    generalize hreStar : re.Star = reStar at h
+    induction h
+    case MStar0 =>
+      simp at saeq
+    case MStarApp ms0 ms1 re' h0 h1 ih0 ih1 =>
+      clear ih0
+      injection hreStar with h_re
+      subst re'
+      cases ms0
+      case nil =>
+        apply ih1 saeq
+        rfl
+        done
+      case cons x ms0' =>
+        injection saeq with h_hd h_tl
+        subst a
+        exists ms0', ms1
+        done
+    case MEmpty =>
+      nomatch hreStar
+    case MChar a' =>
+      nomatch hreStar
+    case MApp s0 s1 re0 re1 h0 h1 =>
+      nomatch hreStar
+    case MUnionL s re0 re1 h0 =>
+      nomatch hreStar
+    case MUnionR s re0 re1 h1 =>
+      nomatch hreStar
+  case mpr =>
+    intro h
+    rcases h with ⟨s0, s1, h_eq, h_re, h_reStar⟩
+    subst s
+    apply exp_match.MStarApp (a :: s0) s1 re h_re h_reStar
+
+
+def refl_matches_eps (m : reg_exp Char → Bool) :=
+  ∀ re : reg_exp Char, reflect ([] =~ re) (m re)
+
+
+def match_eps (re: reg_exp Char) : Bool :=
+  match re with
+  | .EmptySet => false
+  | .EmptyStr => true
+  | .Char _a => false
+  | .App re0 re1 => match_eps re0 && match_eps re1
+  | .Union re0 re1 => match_eps re0 || match_eps re1
+  | .Star _re' => true
+
+
+theorem char_not_match_empty : ∀ (a : Char), ([] =~ .Char a) ↔ False := by
+  intro a
+  generalize seq : [] = s
+  constructor
+  case mp =>
+    intro h
+    cases h
+    nomatch seq
+  case mpr =>
+    intro h
+    contradiction
+
+
+theorem match_eps_refl : refl_matches_eps match_eps := by
+  intro re
+  induction re
+  case EmptySet =>
+    apply reflect.ReflectF
+    intro h
+    rw [null_matches_none] at h
+    assumption
+  case EmptyStr =>
+    apply reflect.ReflectT
+    apply exp_match.MEmpty
+  case Char a =>
+    apply reflect.ReflectF
+    intro h
+    rw [char_not_match_empty] at h
+    assumption
+  case App re0 re1 ih0 ih1 =>
+    replace ih0 := reflect_iff _ _ ih0
+    replace ih1 := reflect_iff _ _ ih1
+    apply iff_reflect
+    constructor
+    case a.mp =>
+      intro h
+      generalize sempty : [] = s at h
+      cases h
+      case MApp s0 s1 h0 h1 =>
+        simp at sempty
+        simp_all
+        unfold match_eps
+        rw [h0, h1]
+        simp
+    case a.mpr =>
+      intro h
+      simp [match_eps] at h
+      rcases h with ⟨h_re0, h_re1⟩
+      apply exp_match.MApp [] re0 [] re1
+      · exact ih0.mpr h_re0
+      · exact ih1.mpr h_re1
+  case Union re0 re1 ih0 ih1 =>
+    replace ih0 := reflect_iff _ _ ih0
+    replace ih1 := reflect_iff _ _ ih1
+    apply iff_reflect
+    constructor
+    case a.mp =>
+      intro h
+      generalize sempty : [] = s at h
+      cases h
+      case MUnionL h0 =>
+        unfold match_eps
+        rw [← sempty] at h0
+        simp
+        left
+        exact ih0.mp h0
+      case MUnionR h1 =>
+        unfold match_eps
+        rw [← sempty] at h1
+        simp
+        right
+        exact ih1.mp h1
+    case a.mpr =>
+      intro h
+      simp [match_eps] at h
+      rcases h with h_re0 | h_re1
+      case inl =>
+        apply exp_match.MUnionL
+        exact ih0.mpr h_re0
+      case inr =>
+        apply exp_match.MUnionR
+        exact ih1.mpr h_re1
+  case Star re' ih =>
+    replace ih := reflect_iff _ _ ih
+    apply iff_reflect
+    constructor
+    case a.mp =>
+      intro h
+      unfold match_eps
+      rfl
+    case a.mpr =>
+      intro h
+      apply exp_match.MStar0
+
+
+def is_der re (a : Char) re' :=
+  ∀ s, a :: s =~ re ↔ s =~ re'
+
+
+def derives (d : Char → reg_exp Char → reg_exp Char) :=
+  ∀ a re, is_der re a (d a re)
+
+
+def derive (a : Char) (re : reg_exp Char) : reg_exp Char :=
+  match re with
+  | .EmptySet => .EmptySet
+  | .EmptyStr => .EmptySet
+  | .Char a' => if a = a' then .EmptyStr else .EmptySet
+  | .App re0 re1 =>
+    let d0 := derive a re0
+    let d1 := derive a re1
+    .Union (.App d0 re1) (.App re0 d1)
+  | .Union re0 re1 =>
+    let d0 := derive a re0
+    let d1 := derive a re1
+    .Union d0 d1
+  | .Star re' =>
+    let d' := derive a re'
+    .App d' (.Star re')
