@@ -2833,8 +2833,11 @@ def derive (a : Char) (re : reg_exp Char) : reg_exp Char :=
   | .Char a' => if a = a' then .EmptyStr else .EmptySet
   | .App re0 re1 =>
     let d0 := derive a re0
-    let d1 := derive a re1
-    .Union (.App d0 re1) (.App re0 d1)
+    if match_eps re0 then
+      let d1 := derive a re1
+      .Union (.App d0 re1) (.App re0 d1)
+    else
+      .App d0 re1
   | .Union re0 re1 =>
     let d0 := derive a re0
     let d1 := derive a re1
@@ -2842,3 +2845,146 @@ def derive (a : Char) (re : reg_exp Char) : reg_exp Char :=
   | .Star re' =>
     let d' := derive a re'
     .App d' (.Star re')
+
+
+def c := 'c'
+def d := 'd'
+
+theorem test_der0
+  : match_eps (derive c .EmptySet) = false := by
+  rfl
+
+theorem test_der1
+  : match_eps (derive c (.Char c)) = true := by
+  rfl
+
+theorem test_der2
+  : match_eps (derive c (.Char d)) = false := by
+  rfl
+
+theorem test_der3
+  : match_eps (derive c (.App (.Char c) .EmptyStr)) = true := by
+  rfl
+
+theorem test_der4
+  : match_eps (derive c (.App .EmptyStr (.Char c))) = true := by
+  rfl
+
+theorem test_der5
+  : match_eps (derive c (.Star (.Char c))) = true := by
+  rfl
+
+theorem test_der6
+  : match_eps
+    (derive d (derive c (.App (.Char c) (.Char d)))) = true := by
+  rfl
+
+theorem test_der7
+  : match_eps
+    (derive d (derive c (.App (.Char d) (.Char c)))) = false := by
+  rfl
+
+#eval derive c (.App (.Char d) (.Char c))
+
+theorem test_der7_smaller1
+  : match_eps
+    (derive c (.App (.Char d) .EmptyStr)) = false := by
+  rfl
+
+theorem test_der7_smaller2
+  : match_eps
+    (derive c (.App (.Char d) (.Char c))) = false := by
+  rfl
+
+
+theorem derive_corr : derives derive := by
+  intro a re
+  induction re
+  case EmptySet =>
+    intro s
+    constructor
+    case mp =>
+      intro h
+      rw [null_matches_none] at h
+      nomatch h
+    case mpr =>
+      intro h
+      contradiction
+  case EmptyStr =>
+    intro s
+    constructor
+    case mp =>
+      intro h
+      rw [empty_nomatch_ne] at h
+      nomatch h
+    case mpr =>
+      intro h
+      unfold derive at h
+      rw [null_matches_none] at h
+      nomatch h
+  case Char a' =>
+    intro s
+    constructor
+    case mp =>
+      intro h
+      by_cases h_eq : a = a'
+      case pos =>
+        subst a'
+        rw [char_eps_suffix] at h
+        simp [derive]
+        subst s
+        apply exp_match.MEmpty
+      case neg =>
+        rw [char_nomatch_char] at h
+        · contradiction
+        · exact h_eq
+    case mpr =>
+      intro h
+      by_cases h_eq : a = a'
+      case pos =>
+        subst a'
+        simp [derive] at h
+        rw [empty_matches_eps] at h
+        subst s
+        apply exp_match.MChar
+      case neg =>
+        simp [derive] at h
+        simp [h_eq] at h
+        rw [null_matches_none] at h
+        contradiction
+  case App re0 re1 ih0 ih1 =>
+    intro s
+    constructor
+    case mp =>
+      intro h
+      generalize aseq : a :: s = as at h
+      cases h
+      case MApp s0 s1 h0 h1 =>
+        sorry
+    case mpr =>
+      intro h
+      simp [derive] at h
+      by_cases h_eps : match_eps re0
+      case pos =>
+        simp [h_eps] at h
+        cases h
+        case MUnionL h1 =>
+          rw [app_ne]
+          rw [app_exists] at h1
+          rcases h1 with ⟨s0, s1, h_eq, h_re0, h_re1⟩
+          right
+          exists s0, s1
+          constructor
+          · exact h_eq
+          · unfold is_der at ih0
+            and_intros
+            · rw [ih0]
+              exact h_re0
+            · exact h_re1
+        case MUnionR h2 =>
+          sorry -- 次回はここから
+
+  case Union re0 re1 ih0 ih1 =>
+    intro s
+    constructor
+    case mp =>
