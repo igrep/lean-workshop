@@ -2832,12 +2832,12 @@ def derive (a : Char) (re : reg_exp Char) : reg_exp Char :=
   | .EmptyStr => .EmptySet
   | .Char a' => if a = a' then .EmptyStr else .EmptySet
   | .App re0 re1 =>
-    let d0 := derive a re0
-    if match_eps re0 then
-      let d1 := derive a re1
-      .Union (.App d0 re1) (.App re0 d1)
-    else
-      .App d0 re1
+    let nur :=
+      if match_eps re0 then
+        reg_exp.EmptyStr
+      else
+        reg_exp.EmptySet
+    ((derive a re0).App re1).Union (nur.App (derive a re1))
   | .Union re0 re1 =>
     let d0 := derive a re0
     let d1 := derive a re1
@@ -2895,6 +2895,36 @@ theorem test_der7_smaller2
   : match_eps
     (derive c (.App (.Char d) (.Char c))) = false := by
   rfl
+
+
+theorem match_eps_reflect {re}
+  : match_eps re = true →  [] =~ re := by
+  induction re
+  case EmptySet =>
+    simp [match_eps]
+  case EmptyStr =>
+    simp [match_eps]
+    exact exp_match.MEmpty
+  case Char c =>
+    simp [match_eps]
+  case App r1 r2 r1_ih r2_ih =>
+    simp [match_eps]
+    intro h1 h2
+    rw [show ([] : List Char) = [] ++ [] from by rfl]
+    apply exp_match.MApp
+    · exact r1_ih h1
+    · exact r2_ih h2
+  case Union r1 r2 r1_ih r2_ih =>
+    simp [match_eps]
+    intro h
+    rcases h with (h | h)
+    · apply exp_match.MUnionL
+      exact r1_ih h
+    · apply exp_match.MUnionR
+      exact r2_ih h
+  case Star r _r_ih =>
+    intro _
+    apply exp_match.MStar0
 
 
 theorem derive_corr : derives derive := by
@@ -2982,7 +3012,18 @@ theorem derive_corr : derives derive := by
               exact h_re0
             · exact h_re1
         case MUnionR h2 =>
-          sorry -- 次回はここから
+          rw [app_ne]
+          rw [app_exists] at h2
+          rcases h2 with ⟨s0, s1, h_eq, h_re0, h_re1⟩
+          rw [empty_matches_eps] at h_re0
+          subst s0
+          rw [List.nil_append] at h_eq
+          subst s
+          left
+          and_intros
+          · apply match_eps_reflect h_eps
+          · rw [ih1]
+            exact h_re1
 
   case Union re0 re1 ih0 ih1 =>
     intro s
