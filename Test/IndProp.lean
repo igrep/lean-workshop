@@ -2987,10 +2987,34 @@ theorem derive_corr : derives derive := by
     constructor
     case mp =>
       intro h
-      generalize aseq : a :: s = as at h
+      rw [app_ne] at h
       cases h
-      case MApp s0 s1 h0 h1 =>
-        sorry
+      case inl h_app =>
+        simp [derive]
+        apply exp_match.MUnionR
+        · rw [← List.nil_append s]
+          apply exp_match.MApp
+          · have h_eps := match_eps_refl re0
+            generalize h_eps_eq : match_eps re0 = b at h_eps
+            cases h_eps
+            case H2.H1.ReflectT h =>
+              simp
+              apply exp_match.MEmpty
+            case H2.H1.ReflectF h =>
+              nomatch h h_app.left
+          · specialize ih1 s
+            rw [← ih1]
+            exact h_app.right
+      case inr h_app =>
+        rcases h_app with ⟨s0, s1, h_eq, h_re0, h_re1⟩
+        simp [derive]
+        apply exp_match.MUnionL
+        subst s
+        apply exp_match.MApp
+        · specialize ih0 s0
+          rw [← ih0]
+          exact h_re0
+        · exact h_re1
     case mpr =>
       intro h
       simp [derive] at h
@@ -3024,8 +3048,88 @@ theorem derive_corr : derives derive := by
           · apply match_eps_reflect h_eps
           · rw [ih1]
             exact h_re1
+      case neg =>
+        simp [h_eps] at h
+        cases h
+        case MUnionL h1 =>
+          rw [app_exists] at ⊢ h1
+          rcases h1 with ⟨h_s0, h_s1, h_eq, h_re0, h_re1⟩
+          exists a :: h_s0, h_s1
+          constructor
+          · rw [List.cons_append]
+            rw [h_eq]
+          · constructor
+            · rw [ih0]
+              exact h_re0
+            · exact h_re1
+        case MUnionR h2 =>
+          rw [app_exists] at ⊢ h2
+          rcases h2 with ⟨h_s0, h_s1, h_eq, h_re0, h_re1⟩
+          cases h_re0
+      done
 
   case Union re0 re1 ih0 ih1 =>
     intro s
     constructor
     case mp =>
+      intro h
+      generalize aseq : a :: s = as at h
+      cases h
+      case MUnionL h0 =>
+        simp [derive]
+        rw [union_disj]
+        left
+        specialize ih0 s
+        rw [← ih0]
+        rw [aseq]
+        exact h0
+      case MUnionR h1 =>
+        simp [derive]
+        rw [union_disj]
+        right
+        specialize ih1 s
+        rw [← ih1]
+        rw [aseq]
+        exact h1
+    case mpr =>
+      intro h
+      simp [derive] at h
+      cases h
+      case MUnionL h1 =>
+        simp [union_disj]
+        left
+        specialize ih0 s
+        rw [ih0]
+        exact h1
+      case MUnionR h2 =>
+        simp [union_disj]
+        right
+        specialize ih1 s
+        rw [ih1]
+        exact h2
+  case Star re' ih =>
+    intro s
+    constructor
+    case mp =>
+      intro h
+      rw [star_ne] at h
+      rcases h with ⟨s0, s1, h_eq, h_re, h_reStar⟩
+      subst s
+      simp [derive]
+      specialize ih s0
+      apply exp_match.MApp
+      · rw [← ih]
+        exact h_re
+      · exact h_reStar
+    case mpr =>
+      intro h
+      simp [derive] at h
+      rw [app_exists] at h
+      rcases h with ⟨s0, s1, h_eq, h_re, h_reStar⟩
+      subst s
+      specialize ih s0
+      rw [← List.cons_append]
+      apply exp_match.MStarApp
+      · rw [ih]
+        exact h_re
+      · exact h_reStar
