@@ -414,7 +414,7 @@ theorem or_distributes_over_and : ∀ P Q R : Prop,
       case right =>
         left
         exact p
-    case inr.intro =>
+    case inr =>
       constructor
       case left =>
         right
@@ -424,10 +424,10 @@ theorem or_distributes_over_and : ∀ P Q R : Prop,
         exact r
   case mpr =>
     rintro ⟨(p | q), pr⟩
-    case intro.inl =>
+    case inl =>
       left
       exact p
-    case intro.inr =>
+    case inr =>
       cases pr
       case inl p =>
         left

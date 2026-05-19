@@ -2270,8 +2270,7 @@ theorem palindrome_converse : ∀ {X: Type} (l: List X),
           exact h_len
         specialize ih init.length (by omega) init
         apply ih
-        · simp only [List.append_cancel_right_eq] at h_rev
-          exact h_rev
+        · exact h_rev.left
         · rfl
 
 

@@ -390,7 +390,7 @@ theorem double_injective_take2 : ∀ n m,
 theorem nth_error_after_last : ∀
   (n : Nat) (X : Type) (l : List X),
   l.length = n →
-  l.get? n = none := by
+  l[n]? = none := by
   intro n _ l
   -- revert n
   induction l generalizing n
@@ -413,7 +413,7 @@ theorem nth_error_after_last : ∀
 theorem nth_error_after_last2 : ∀
   (n : Nat) (X : Type) (l : List X),
   l.length = n →
-  l.get? n = none := by
+  l[n]? = none := by
   intro n _ l eq
   induction n generalizing l
   case zero =>
