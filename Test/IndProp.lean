@@ -2501,7 +2501,7 @@ theorem pigeonhole_principle : excluded_middle →
 
 
 -- Called `string` in https://softwarefoundations.cis.upenn.edu/lf-current/IndProp.html#lab292
-def ListChar := List Char
+abbrev ListChar := List Char
 
 
 theorem provable_equiv_true :
@@ -3133,3 +3133,115 @@ theorem derive_corr : derives derive := by
       · rw [ih]
         exact h_re
       · exact h_reStar
+
+
+def matches_regex
+  (m : ListChar → reg_exp Char → Bool) : Prop :=
+  ∀ (s : ListChar) re, reflect (s =~ re) (m s re)
+
+
+def regex_match
+  (s : ListChar)
+  (re : reg_exp Char)
+  : Bool :=
+  match re with
+  | .EmptySet => .false
+  | .EmptyStr => s == []
+  | .Char a => s == [a]
+  | .App re0 re1 =>
+    match s with
+    | [] => match_eps re0 && match_eps re1
+    | a :: s' =>
+      let d0 := derive a re0
+      let d1 := derive a re1
+      (regex_match s' d0 && match_eps re1) ||
+      (match_eps re0 && regex_match s' d1)
+  | .Union re0 re1 =>
+    let m0 := regex_match s re0
+    let m1 := regex_match s re1
+    m0 || m1
+  | .Star re' =>
+    match s with
+    | [] => .true
+    | a :: s' =>
+      let d' := derive a re'
+      regex_match s' (.App d' (.Star re'))
+
+
+theorem regex_match_correct : matches_regex regex_match := by
+  intro s re
+  induction re generalizing s
+  case EmptySet =>
+    simp [regex_match]
+    apply reflect.ReflectF
+    intro h
+    rw [null_matches_none] at h
+    assumption
+    done
+  case EmptyStr =>
+    simp [regex_match]
+    apply iff_reflect
+    constructor
+    case a.mp =>
+      intro h
+      cases h
+      rfl
+      done
+    case a.mpr =>
+      intro h
+      simp at h
+      rw [h]
+      apply exp_match.MEmpty
+      done
+  case Char a =>
+    simp [regex_match]
+    apply iff_reflect
+    constructor
+    case a.mp =>
+      intro h
+      cases h
+      simp
+    case a.mpr =>
+      intro h
+      simp at h
+      rw [h]
+      apply exp_match.MChar
+      done
+  case App re0 re1 ih0 ih1 =>
+    cases s
+    case nil =>
+      simp [regex_match]
+      have h :=
+        reflect_iff _ _ (match_eps_refl (re0.App re1))
+      apply iff_reflect
+      unfold match_eps at h
+      exact h
+    case cons a s' =>
+      simp [regex_match]
+      have ih0' := reflect_iff _ _ (ih0 (a :: s'))
+      have ih1' := reflect_iff _ _ (ih1 (a :: s'))
+      apply iff_reflect
+      rw [app_ne]
+      constructor
+      case a.mp =>
+        intro h
+        simp
+        cases h
+        case inl h_app =>
+          right
+          rcases h_app with ⟨h_app_l, h_app_r⟩
+          constructor
+          · have h_eps :=
+              reflect_iff _ _ (match_eps_refl re0)
+            rw [h_eps] at h_app_l
+            exact h_app_l
+            done
+          · have h_derive := derive_corr a re1 s'
+            have goal' :=
+              reflect_iff _ _
+                (regex_match_correct s' (derive a re1))
+            rw [← goal', ← h_derive]
+            exact h_app_r
+            done
+        case inr h_app =>
+          left
