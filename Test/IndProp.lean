@@ -3153,7 +3153,7 @@ def regex_match
     | a :: s' =>
       let d0 := derive a re0
       let d1 := derive a re1
-      (regex_match s' d0 && match_eps re1) ||
+      (regex_match s' (.App d0 re1)) ||
       (match_eps re0 && regex_match s' d1)
   | .Union re0 re1 =>
     let m0 := regex_match s re0
@@ -3165,6 +3165,9 @@ def regex_match
     | a :: s' =>
       let d' := derive a re'
       regex_match s' (.App d' (.Star re'))
+
+#guard regex_match ['a', 'b'] (.App (.Char 'a') (.Char 'b'))
+#guard regex_match ['b'] (.App .EmptyStr (.Char 'b'))
 
 
 theorem regex_match_correct : matches_regex regex_match := by
@@ -3217,8 +3220,6 @@ theorem regex_match_correct : matches_regex regex_match := by
       exact h
     case cons a s' =>
       simp [regex_match]
-      have ih0' := reflect_iff _ _ (ih0 (a :: s'))
-      have ih1' := reflect_iff _ _ (ih1 (a :: s'))
       apply iff_reflect
       rw [app_ne]
       constructor
@@ -3244,3 +3245,58 @@ theorem regex_match_correct : matches_regex regex_match := by
             done
         case inr h_app =>
           left
+          rcases h_app with ⟨s0, s1, h_eq, h_re0, h_re1⟩
+          clear ih0 ih1
+          subst h_eq
+          have goal' :=
+            reflect_iff _ _
+              (regex_match_correct
+                (s0 ++ s1) (.App (derive a re0) re1))
+          rw [← goal']
+          apply exp_match.MApp
+          · have h_derive := derive_corr a re0 s0
+            rw [← h_derive]
+            exact h_re0
+          · exact h_re1
+          done
+      case a.mpr =>
+        intro h
+        simp at h
+        cases h
+        case inl h_app =>
+          right
+          have h' :=
+            reflect_iff _ _
+              (regex_match_correct s' (.App (derive a re0) re1))
+          replace h' := h'.mpr h_app
+          have happ_exists := app_exists s' (derive a re0) re1
+          replace happ_exists := happ_exists.mp h'
+          rcases happ_exists with ⟨s0, s1, h_eq, h_re0, h_re1⟩
+          exists s0, s1
+          constructor
+          · exact h_eq
+          · constructor
+            · have h_derive := derive_corr a re0 s0
+              rw [h_derive]
+              exact h_re0
+            · exact h_re1
+            done
+        case inr h_app =>
+          left
+          constructor
+          · have h_true := reflect_iff _ _  (match_eps_refl re0)
+            rw [← h_true] at h_app
+            exact h_app.left
+          · have h_derive := derive_corr a re1 s'
+            rw [h_derive]
+            have goal' :=
+              reflect_iff _ _
+                (regex_match_correct s' (derive a re1))
+            rw [goal']
+            exact h_app.right
+            done
+    done
+  case Union re0 re1 ih0 ih1 =>
+    done
+  case Star re' ih =>
+    done
