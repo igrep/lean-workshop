@@ -3297,6 +3297,76 @@ theorem regex_match_correct : matches_regex regex_match := by
             done
     done
   case Union re0 re1 ih0 ih1 =>
-    done
+    simp [regex_match]
+    apply iff_reflect
+    specialize ih0 s
+    specialize ih1 s
+    simp
+    constructor
+    case a.mp =>
+      intro h
+      cases h
+      case MUnionL hl =>
+        left
+        have ih0' := reflect_iff _ _ ih0
+        exact ih0'.mp hl
+      case MUnionR hr =>
+        right
+        have ih1' := reflect_iff _ _ ih1
+        exact ih1'.mp hr
+    case a.mpr =>
+      intro h
+      cases h
+      case inl h0 =>
+        apply exp_match.MUnionL
+        have ih0' := reflect_iff _ _ ih0
+        exact ih0'.mpr h0
+      case inr h1 =>
+        apply exp_match.MUnionR
+        have ih1' := reflect_iff _ _ ih1
+        exact ih1'.mpr h1
   case Star re' ih =>
-    done
+    cases s
+    case nil =>
+      simp [regex_match]
+      apply reflect.ReflectT
+      apply exp_match.MStar0
+    case cons a s' =>
+      simp [regex_match]
+      apply iff_reflect
+      constructor
+      case a.mp =>
+        intro h
+        rw [star_ne] at h
+        rcases h with ⟨s0, s1, h_eq, h_re, h_reStar⟩
+        have goal' :=
+          reflect_iff _ _
+            (regex_match_correct s' (.App (derive a re') (.Star re')))
+        rw [← goal', h_eq]
+        apply exp_match.MApp
+        · have h_derive := derive_corr a re' s0
+          rw [← h_derive]
+          exact h_re
+          done
+        · exact h_reStar
+          done
+      case a.mpr =>
+        intro h
+        rw [star_ne]
+        have h_match :=
+          reflect_iff _ _
+            (regex_match_correct s' ((derive a re').App re'.Star))
+        rw [← h_match] at h
+        clear h_match
+        cases h
+        case MApp s1 s2 h_s1 h_s2 =>
+        exists s1, s2
+        constructor
+        · rfl
+        · constructor
+          · have h_derive := derive_corr a re' s1
+            rw [h_derive]
+            exact h_s1
+            done
+          · exact h_s2
+            done
