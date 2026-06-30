@@ -3143,28 +3143,11 @@ def regex_match
   (s : ListChar)
   (re : reg_exp Char)
   : Bool :=
-  match re with
-  | .EmptySet => .false
-  | .EmptyStr => s == []
-  | .Char a => s == [a]
-  | .App re0 re1 =>
-    match s with
-    | [] => match_eps re0 && match_eps re1
+  match s with
+    | [] => match_eps re
     | a :: s' =>
-      let d0 := derive a re0
-      let d1 := derive a re1
-      (regex_match s' (.App d0 re1)) ||
-      (match_eps re0 && regex_match s' d1)
-  | .Union re0 re1 =>
-    let m0 := regex_match s re0
-    let m1 := regex_match s re1
-    m0 || m1
-  | .Star re' =>
-    match s with
-    | [] => .true
-    | a :: s' =>
-      let d' := derive a re'
-      regex_match s' (.App d' (.Star re'))
+      let re' := derive a re
+      regex_match s' re'
 
 #guard regex_match ['a', 'b'] (.App (.Char 'a') (.Char 'b'))
 #guard regex_match ['b'] (.App .EmptyStr (.Char 'b'))
@@ -3172,201 +3155,15 @@ def regex_match
 
 theorem regex_match_correct : matches_regex regex_match := by
   intro s re
-  induction re generalizing s
-  case EmptySet =>
+  induction s generalizing re
+  case nil =>
     simp [regex_match]
-    apply reflect.ReflectF
-    intro h
-    rw [null_matches_none] at h
-    assumption
+    apply match_eps_refl
+  case cons c s' ih =>
+    simp [regex_match]
+    apply iff_reflect
+    specialize ih (derive c re)
+    replace ih := reflect_iff _ _ ih
+    rw [← ih]
+    apply derive_corr
     done
-  case EmptyStr =>
-    simp [regex_match]
-    apply iff_reflect
-    constructor
-    case a.mp =>
-      intro h
-      cases h
-      rfl
-      done
-    case a.mpr =>
-      intro h
-      simp at h
-      rw [h]
-      apply exp_match.MEmpty
-      done
-  case Char a =>
-    simp [regex_match]
-    apply iff_reflect
-    constructor
-    case a.mp =>
-      intro h
-      cases h
-      simp
-    case a.mpr =>
-      intro h
-      simp at h
-      rw [h]
-      apply exp_match.MChar
-      done
-  case App re0 re1 ih0 ih1 =>
-    cases s
-    case nil =>
-      simp [regex_match]
-      have h :=
-        reflect_iff _ _ (match_eps_refl (re0.App re1))
-      apply iff_reflect
-      unfold match_eps at h
-      exact h
-    case cons a s' =>
-      simp [regex_match]
-      apply iff_reflect
-      rw [app_ne]
-      constructor
-      case a.mp =>
-        intro h
-        simp
-        cases h
-        case inl h_app =>
-          right
-          rcases h_app with ⟨h_app_l, h_app_r⟩
-          constructor
-          · have h_eps :=
-              reflect_iff _ _ (match_eps_refl re0)
-            rw [h_eps] at h_app_l
-            exact h_app_l
-            done
-          · have h_derive := derive_corr a re1 s'
-            have goal' :=
-              reflect_iff _ _
-                (regex_match_correct s' (derive a re1))
-            rw [← goal', ← h_derive]
-            exact h_app_r
-            done
-        case inr h_app =>
-          left
-          rcases h_app with ⟨s0, s1, h_eq, h_re0, h_re1⟩
-          clear ih0 ih1
-          subst h_eq
-          have goal' :=
-            reflect_iff _ _
-              (regex_match_correct
-                (s0 ++ s1) (.App (derive a re0) re1))
-          rw [← goal']
-          apply exp_match.MApp
-          · have h_derive := derive_corr a re0 s0
-            rw [← h_derive]
-            exact h_re0
-          · exact h_re1
-          done
-      case a.mpr =>
-        intro h
-        simp at h
-        cases h
-        case inl h_app =>
-          right
-          have h' :=
-            reflect_iff _ _
-              (regex_match_correct s' (.App (derive a re0) re1))
-          replace h' := h'.mpr h_app
-          have happ_exists := app_exists s' (derive a re0) re1
-          replace happ_exists := happ_exists.mp h'
-          rcases happ_exists with ⟨s0, s1, h_eq, h_re0, h_re1⟩
-          exists s0, s1
-          constructor
-          · exact h_eq
-          · constructor
-            · have h_derive := derive_corr a re0 s0
-              rw [h_derive]
-              exact h_re0
-            · exact h_re1
-            done
-        case inr h_app =>
-          left
-          constructor
-          · have h_true := reflect_iff _ _  (match_eps_refl re0)
-            rw [← h_true] at h_app
-            exact h_app.left
-          · have h_derive := derive_corr a re1 s'
-            rw [h_derive]
-            have goal' :=
-              reflect_iff _ _
-                (regex_match_correct s' (derive a re1))
-            rw [goal']
-            exact h_app.right
-            done
-    done
-  case Union re0 re1 ih0 ih1 =>
-    simp [regex_match]
-    apply iff_reflect
-    specialize ih0 s
-    specialize ih1 s
-    simp
-    constructor
-    case a.mp =>
-      intro h
-      cases h
-      case MUnionL hl =>
-        left
-        have ih0' := reflect_iff _ _ ih0
-        exact ih0'.mp hl
-      case MUnionR hr =>
-        right
-        have ih1' := reflect_iff _ _ ih1
-        exact ih1'.mp hr
-    case a.mpr =>
-      intro h
-      cases h
-      case inl h0 =>
-        apply exp_match.MUnionL
-        have ih0' := reflect_iff _ _ ih0
-        exact ih0'.mpr h0
-      case inr h1 =>
-        apply exp_match.MUnionR
-        have ih1' := reflect_iff _ _ ih1
-        exact ih1'.mpr h1
-  case Star re' ih =>
-    cases s
-    case nil =>
-      simp [regex_match]
-      apply reflect.ReflectT
-      apply exp_match.MStar0
-    case cons a s' =>
-      simp [regex_match]
-      apply iff_reflect
-      constructor
-      case a.mp =>
-        intro h
-        rw [star_ne] at h
-        rcases h with ⟨s0, s1, h_eq, h_re, h_reStar⟩
-        have goal' :=
-          reflect_iff _ _
-            (regex_match_correct s' (.App (derive a re') (.Star re')))
-        rw [← goal', h_eq]
-        apply exp_match.MApp
-        · have h_derive := derive_corr a re' s0
-          rw [← h_derive]
-          exact h_re
-          done
-        · exact h_reStar
-          done
-      case a.mpr =>
-        intro h
-        rw [star_ne]
-        have h_match :=
-          reflect_iff _ _
-            (regex_match_correct s' ((derive a re').App re'.Star))
-        rw [← h_match] at h
-        clear h_match
-        cases h
-        case MApp s1 s2 h_s1 h_s2 =>
-        exists s1, s2
-        constructor
-        · rfl
-        · constructor
-          · have h_derive := derive_corr a re' s1
-            rw [h_derive]
-            exact h_s1
-            done
-          · exact h_s2
-            done
