@@ -156,6 +156,13 @@ theorem or_elim' : ∀ (P Q R : Prop),
     apply HQR
     apply HQ
 
+/-
+def or_bogus : ∀ P Q, P \/ Q → P :=
+  fun (P Q : Prop) (A : P \/ Q) =>
+    match A with
+    | or.or_introl H => H
+-/
+
 end Or
 
 theorem or_commut' : ∀ P Q, P ∨ Q → Q ∨ P :=
@@ -293,3 +300,118 @@ end EqualityPlayground
 
 end Props
 
+unsafe def infinite_loop {X : Prop} (n : Nat) : X :=
+  infinite_loop n
+ termination_by n
+
+unsafe def falso : False := infinite_loop  0
+
+#check And
+#check Or
+
+theorem my_and_assoc : ∀ P Q R : Prop,
+  P ∧ (Q ∧ R) → (P ∧ Q) ∧ R :=
+  fun P Q R HPQR =>
+    match HPQR with
+    | And.intro HP (And.intro HQ HR) =>
+      And.intro (And.intro HP HQ) HR
+
+#check Iff
+
+theorem or_distributes_over_and : ∀ P Q R : Prop,
+  P ∨ (Q ∧ R) ↔ (P ∨ Q) ∧ (P ∨ R) :=
+  fun P Q R =>
+    Iff.intro
+      (fun HPQR =>
+        match HPQR with
+        | Or.inl HP => And.intro (Or.inl HP) (Or.inl HP)
+        | Or.inr (And.intro HQ HR) => And.intro (Or.inr HQ) (Or.inr HR))
+      (fun H =>
+        match H with
+        | And.intro (Or.inl HP) _ => Or.inl HP
+        | And.intro (Or.inr _) (Or.inl HP) => Or.inl HP
+        | And.intro (Or.inr HQ) (Or.inr HR) => Or.inr (And.intro HQ HR))
+
+#check Not
+
+theorem double_neg : ∀ P : Prop,
+  P → ¬¬P :=
+  fun _P HP HNP =>
+    HNP HP
+
+theorem contradiction_implies_anything : ∀ P Q : Prop,
+  (P ∧ ¬P) → Q :=
+  fun P Q HPNP =>
+    match HPNP with
+    | And.intro HP HNP =>
+      nomatch HNP HP
+
+theorem de_morgan_not_or : ∀ P Q : Prop,
+  ¬ (P ∨ Q) → ¬P ∧ ¬Q :=
+  fun _P _Q HNPQ =>
+    And.intro
+      (fun HP => HNPQ (Or.inl HP))
+      (fun HQ => HNPQ (Or.inr HQ))
+
+theorem curry : ∀ P Q R : Prop,
+  ((P ∧ Q) → R) → (P → (Q → R)) :=
+  fun _P _Q _R H HP HQ =>
+    H (And.intro HP HQ)
+
+theorem uncurry : ∀ P Q R : Prop,
+  (P → (Q → R)) → ((P ∧ Q) → R) :=
+  fun _P _Q _R H HPQ =>
+    match HPQ with
+    | And.intro HP HQ => H HP HQ
+
+def propositional_extensionality : Prop :=
+  ∀ (P Q : Prop), (P ↔ Q) → P = Q
+
+theorem pe_implies_or_eq :
+  propositional_extensionality →
+  ∀ (P Q : Prop), (P ∨ Q) = (Q ∨ P) := by
+  intro pe P Q
+  apply pe
+  constructor
+  · intro HPQ
+    cases HPQ
+    case a.mp.inl HP =>
+      apply Or.inr
+      exact HP
+    case a.mp.inr HQ =>
+      apply Or.inl
+      exact HQ
+  · intro HQP
+    cases HQP
+    case a.mpr.inl HQ =>
+      apply Or.inr
+      exact HQ
+    case a.mpr.inr HP =>
+      apply Or.inl
+      exact HP
+
+theorem pe_implies_true_eq :
+  propositional_extensionality →
+  ∀ (P : Prop), P → True = P := by
+  intro pe P HP
+  apply pe
+  constructor
+  · intro HTrue
+    exact HP
+  · intro HP'
+    exact True.intro
+
+def proof_irrelevance : Prop :=
+  ∀ (P : Prop) (pf1 pf2 : P), pf1 = pf2
+
+theorem pe_implies_pi :
+  propositional_extensionality → proof_irrelevance := by
+  unfold propositional_extensionality
+  intro pe P pf1 pf2
+  have h1 := pe_implies_true_eq pe P pf1
+  subst P
+  cases pf1
+  case intro =>
+    cases pf2
+    case intro =>
+      rfl
