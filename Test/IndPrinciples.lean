@@ -1,3 +1,5 @@
+import Test.IndProp
+
 /- 
 Nat.rec.{u}
   {motive : Nat → Sort u}
@@ -175,3 +177,122 @@ inductive foo' (X : Type) : Type where
   (∀ (l : List X) (f : foo' X), P f → P (foo'.C1 l f)) →
   (P foo'.C2) →
   ∀ f : foo' X, P f)
+
+
+def P_m0r (n : Nat) : Prop :=
+  n * 0 = 0
+
+def P_m0r' : Nat → Prop :=
+  fun n => n * 0 = 0
+
+theorem mul_0_r'' : ∀ n : Nat,
+  P_m0r n := by
+  apply Nat.rec
+  · rfl
+  · intro n IHn
+    unfold P_m0r at IHn
+    unfold P_m0r
+    apply IHn
+
+theorem add_assoc' : ∀ n m p : Nat,
+  n + (m + p) = (n + m) + p := by
+  intro n m p
+  induction p
+  case zero =>
+    rfl
+  case succ p' IH =>
+    rw [Nat.add_succ]
+    rw [Nat.add_succ]
+    rw [IH]
+    rw [Nat.add_succ]
+
+def add_assoc'_ex_P (n m p : Nat) : Prop :=
+  n + (m + p) = (n + m) + p
+
+theorem add_assoc'_ex : ∀ n m p : Nat,
+  add_assoc'_ex_P n m p := by
+  intro n m p
+  apply Nat.rec
+  · unfold add_assoc'_ex_P
+    rfl
+  · intro p' IH
+    unfold add_assoc'_ex_P at IH
+    unfold add_assoc'_ex_P
+    rw [Nat.add_succ]
+    rw [Nat.add_succ]
+    rw [IH]
+    rw [Nat.add_succ]
+
+
+theorem add_comm' : ∀ n m : Nat,
+  n + m = m + n := by
+  intro n m
+  induction n
+  case zero =>
+    rw [Nat.zero_add]
+    rfl
+  case succ n IH =>
+    rw [Nat.succ_add]
+    rw [IH]
+    rw [Nat.add_succ]
+
+def add_comm'_ex_P (n m : Nat) : Prop :=
+  n + m = m + n
+
+theorem add_comm'_ex : ∀ n m : Nat,
+  add_comm'_ex_P n m := by
+  intro n m
+  apply Nat.rec
+  · unfold add_comm'_ex_P
+    rw [Nat.zero_add]
+    rfl
+  · intro m' IH
+    unfold add_comm'_ex_P at IH
+    unfold add_comm'_ex_P
+    rw [Nat.add_succ]
+    rw [IH]
+    rw [Nat.succ_add]
+
+#print ev
+#check ev.rec
+#check (ev.rec :
+  ∀ {P : (a : Nat) → ev a → Prop},
+  P 0 ev.zero →
+  (∀ {n : Nat}, (h : ev n) → P n h → P n.succ.succ h.succ) →
+  ∀ {n : Nat}, (t : ev n) → P n t)
+
+theorem ev_ev' : ∀ n, ev n → ev' n := by
+  apply ev.rec
+  · apply ev'.ev'_0
+  · intro n h IH
+    apply ev'.ev'_sum
+    · exact IH
+    · exact ev'.ev'_2
+
+
+inductive le1 : Nat → Nat → Prop where
+  | le1_n : ∀ n, le1 n n
+  | le1_S : ∀ n m, (le1 n m) → (le1 n m.succ)
+
+inductive le2 (n : Nat) : Nat → Prop where
+  | le2_n : le2 n n
+  | le2_S m (H : le2 n m) : le2 n m.succ
+
+set_option pp.proofs true
+set_option pp.explicit true
+/-
+le1.rec :
+  ∀ {n : Nat} {motive : (a : Nat) → le1 n a → Prop},
+    motive n (le1.le1_n n) →
+      (∀ (m : Nat) (a : le1 n m), motive m a → motive m.succ (le1.le1_S n m a)) →
+        ∀ {a : Nat} (t : le1 n a), motive a t : Prop
+-/
+#check le1.rec
+/-
+le2.rec :
+  ∀ {n : Nat} {motive : (a : Nat) → le2 n a → Prop},
+    motive n (@le2.le2_n n) →
+      (∀ (m : Nat) (H : le2 n m), motive m H → motive m.succ (@le2.le2_S n m H)) →
+        ∀ {a : Nat} (t : le2 n a), motive a t : Prop
+-/
+#check le2.rec
