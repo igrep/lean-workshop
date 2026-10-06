@@ -1,9 +1,10 @@
 import Test.IndProp
+import Test.Basic
 
 /- 
 Nat.rec.{u}
   {motive : Nat → Sort u}
-  (zero : motive Nat.zero)
+  (zero : motive 0)
   (succ : (n : Nat) → motive n → motive n.succ)
   (t : Nat)
 -/
@@ -229,7 +230,7 @@ theorem add_comm' : ∀ n m : Nat,
   intro n m
   induction n
   case zero =>
-    rw [Nat.zero_add]
+    rw [0_add]
     rfl
   case succ n IH =>
     rw [Nat.succ_add]
@@ -244,7 +245,7 @@ theorem add_comm'_ex : ∀ n m : Nat,
   intro n m
   apply Nat.rec
   · unfold add_comm'_ex_P
-    rw [Nat.zero_add]
+    rw [0_add]
     rfl
   · intro m' IH
     unfold add_comm'_ex_P at IH
@@ -296,3 +297,77 @@ le2.rec :
         ∀ {a : Nat} (t : le2 n a), motive a t : Prop
 -/
 #check le2.rec
+
+set_option pp.proofs false
+set_option pp.explicit false
+
+def nat_ind_tidy
+  (P : Nat → Prop)
+  (evPO : P 0)
+  (evPS : ∀ n : Nat, P n → P n.succ)
+  (n : Nat) : P n :=
+  match n with
+  | 0 => evPO
+  | k + 1 => evPS k (nat_ind_tidy P evPO evPS k)
+
+
+theorem mul_0_r''' : ∀ n : Nat,
+  0 * n = 0 := by
+  intro n
+  induction n using nat_ind_tidy
+  case evPO =>
+    rfl
+  case evPS n IH =>
+    simp
+    done
+
+
+theorem even_ev_sorry : ∀ n : Nat, evenb n = true → ev n := by
+  intro n
+  induction n
+  case zero =>
+    intro H
+    apply ev.zero
+  case succ n IH =>
+    intro H
+    cases n
+    case zero =>
+      simp at H
+      nomatch H
+      done
+    case succ n' =>
+      sorry
+
+
+def nat_ind2
+  (P : Nat → Prop)
+  (P0 : P 0)
+  (P1 : P 1)
+  (PSS : ∀ n : Nat, P n → P n.succ.succ)
+  : (∀ n, P n) :=
+    let rec f (n : Nat) :=
+      match n with
+        | 0 => P0
+        | 1 => P1
+        | n' + 2 => PSS n' (f n')
+    f
+
+#print nat_ind2
+
+theorem even_ev : ∀ n, evenb n = true → ev n := by
+  intro n
+  induction n using nat_ind2
+  case P0 =>
+    intro H
+    apply ev.zero
+  case P1 =>
+    intro H
+    nomatch H
+    done
+  case PSS n IH =>
+    intro H
+    simp at H
+    apply ev.succ
+    apply IH
+    simp [evenb] at H
+    exact H
