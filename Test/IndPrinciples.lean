@@ -1,7 +1,7 @@
 import Test.IndProp
 import Test.Basic
 
-/- 
+/-
 Nat.rec.{u}
   {motive : Nat → Sort u}
   (zero : motive 0)
@@ -371,3 +371,80 @@ theorem even_ev : ∀ n, evenb n = true → ev n := by
     apply IH
     simp [evenb] at H
     exact H
+
+namespace Ex4
+
+inductive t_tree (X : Type) : Type where
+| t_leaf
+| t_branch : (t_tree X × X × t_tree X) → t_tree X
+
+-- 多分Rocqのそれより大分複雑
+#check (t_tree.rec : {X : Type} →
+  {m1 : t_tree X → Prop} →
+    {m2 : t_tree X × X × t_tree X → Prop} →
+      {m3 : X × t_tree X → Prop} →
+        m1 t_tree.t_leaf →
+          ((a : t_tree X × X × t_tree X) → m2 a → m1 (t_tree.t_branch a)) →
+            ((fst : t_tree X) → (snd : X × t_tree X) → m1 fst → m3 snd → m2 (fst, snd)) →
+              ((fst : X) → (snd : t_tree X) → m1 snd → m3 (fst, snd)) → (t : t_tree X) → m1 t)
+
+def reflect {X : Type} (t : t_tree X) : t_tree X :=
+  match t with
+  | t_tree.t_leaf =>
+    t_tree.t_leaf
+  | t_tree.t_branch (l, v, r) =>
+    t_tree.t_branch (reflect r, v, reflect l)
+
+#check reflect
+
+theorem reflect_involution_sorry : ∀ (X : Type) (t : t_tree X),
+  reflect (reflect t) = t := by
+  intro X t
+  sorry
+  -- The `induction` tactic does not support the type `Ex4.t_tree` because it is a nested inductive type
+  -- induction t
+
+-- 参考: 普通に t_tree を定義した場合であろう形。
+--       普通の `induction` も使えるはず
+inductive t_tree2 (X : Type) : Type where
+| t_leaf
+| t_branch : t_tree2 X → X → t_tree2 X → t_tree2 X
+#check t_tree2.rec
+#check (t_tree2.rec : {X : Type} →
+  {pred : t_tree2 X → Prop} →
+    pred t_tree2.t_leaf →
+      ((l : t_tree2 X)
+       → (x : X)
+       → (r : t_tree2 X)
+       → pred l → pred r → pred (t_tree2.t_branch l x r)) →
+        (t : t_tree2 X) → pred t)
+
+def better_t_tree_ind_type : Prop :=
+  ∀ (X : Type) (P : t_tree X → Prop),
+    (t_leaf : P t_tree.t_leaf) →
+      (t_branch : ∀ (l : t_tree X) (x : X) (r : t_tree X),
+        P l → P r → P (t_tree.t_branch (l, x, r))) →
+        ∀ (t : t_tree X), P t
+
+theorem better_t_tree_ind : better_t_tree_ind_type := by
+  intro X P H_leaf H_branch t
+  cases t
+  case t_leaf =>
+    apply H_leaf
+  case t_branch lxr =>
+    apply H_branch
+    · apply better_t_tree_ind X P H_leaf H_branch lxr.fst
+    · apply better_t_tree_ind X P H_leaf H_branch lxr.snd.snd
+
+theorem reflect_involution : ∀ (X : Type) (t : t_tree X),
+  reflect (reflect t) = t := by
+  intro X t
+  induction t using better_t_tree_ind
+  case t_leaf =>
+    rfl
+  case t_branch l x r IHl IHr =>
+    dsimp [reflect]
+    rw [IHl]
+    rw [IHr]
+
+end Ex4
